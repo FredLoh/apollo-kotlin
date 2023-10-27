@@ -1,0 +1,29 @@
+type Query {
+    version: Int!
+    clients: [Client!]!
+    normalizedCache(id: ID!): NormalizedCache!
+}
+
+type Client {
+    id: ID!
+    displayName: String!
+    normalizedCaches: [NormalizedCacheInfo!]!
+}
+
+type NormalizedCacheInfo {
+    id: ID!
+    displayName: String!
+    recordCount: Int!
+}
+
+type NormalizedCache {
+    id: ID!
+    records: [KeyedRecord!]!
+}
+
+type KeyedRecord {
+    key: String!
+    record: Record!
+}
+
+scalar Record
