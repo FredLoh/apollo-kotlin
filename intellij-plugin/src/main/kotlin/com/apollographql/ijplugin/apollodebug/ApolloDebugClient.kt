@@ -5,14 +5,7 @@ import com.android.tools.idea.adb.AdbShellCommandsUtil
 import com.apollographql.apollo3.ApolloClient
 import com.apollographql.apollo3.debug.GetClientsQuery
 import com.apollographql.apollo3.debug.GetNormalizedCacheQuery
-import com.apollographql.ijplugin.ApolloBundle
 import com.apollographql.ijplugin.util.logw
-import com.intellij.openapi.application.ModalityState
-import com.intellij.openapi.application.invokeLater
-import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.Task
-import com.intellij.openapi.project.Project
-import kotlinx.coroutines.runBlocking
 import java.io.Closeable
 
 private const val SOCKET_NAME_PREFIX = "apollo_debug_"
@@ -91,34 +84,9 @@ class ApolloDebugClient(
     apolloClient.query(GetClientsQuery()).execute().dataOrThrow().clients
   }
 
-  private suspend fun getNormalizedCache(id: String): Result<GetNormalizedCacheQuery.NormalizedCache> = runCatching {
+  suspend fun getNormalizedCache(id: String): Result<GetNormalizedCacheQuery.NormalizedCache> = runCatching {
     ensurePortForward()
     apolloClient.query(GetNormalizedCacheQuery(id)).execute().dataOrThrow().normalizedCache
-  }
-
-  fun getNormalizedCacheAsync(
-      project: Project,
-      id: String,
-      onCachePullSuccess: (GetNormalizedCacheQuery.NormalizedCache) -> Unit,
-      onCachePullError: (Throwable) -> Unit,
-  ) {
-    object : Task.Backgroundable(
-        project,
-        ApolloBundle.message("normalizedCacheViewer.pullFromDevice.pull.ongoing"),
-        false,
-    ) {
-      override fun run(indicator: ProgressIndicator) {
-        val getNormalizedCacheResult = runBlocking { getNormalizedCache(id) }
-        invokeLater(ModalityState.any()) {
-          getNormalizedCacheResult.onSuccess {
-            onCachePullSuccess(it)
-          }.onFailure {
-            logw(it, "Pull failed")
-            onCachePullError(it)
-          }
-        }
-      }
-    }.queue()
   }
 
   override fun close() {

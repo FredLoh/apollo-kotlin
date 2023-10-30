@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import com.android.ddmlib.Client
 import com.android.ddmlib.IDevice
 import com.apollographql.apollo3.debug.GetClientsQuery
-import com.apollographql.apollo3.debug.GetNormalizedCacheQuery
 import com.apollographql.ijplugin.ApolloBundle
 import com.apollographql.ijplugin.apollodebug.ApolloDebugClient
 import com.apollographql.ijplugin.apollodebug.ApolloDebugClient.Companion.getApolloDebugClients
@@ -45,7 +44,7 @@ import javax.swing.tree.TreeSelectionModel
 class PullFromDeviceDialog(
     private val project: Project,
     private val onFilePullSuccess: (File) -> Unit,
-    private val onCachePullSuccess: (GetNormalizedCacheQuery.NormalizedCache) -> Unit,
+    private val onApolloDebugCacheSelected: (ApolloDebugClient, String) -> Unit,
     private val onPullError: (Throwable) -> Unit,
 ) : DialogWrapper(project, true), Disposable {
   private lateinit var tree: SimpleTree
@@ -133,18 +132,7 @@ class PullFromDeviceDialog(
       is ApolloDebugNormalizedCacheNode -> {
         // Don't close the apolloClient, it will be closed later by the caller
         apolloDebugClientsToClose.remove(selectedNode.apolloDebugClient)
-        selectedNode.apolloDebugClient.getNormalizedCacheAsync(
-            project = project,
-            id = selectedNode.normalizedCacheInfo.id,
-            onCachePullSuccess = {
-              selectedNode.apolloDebugClient.close()
-              onCachePullSuccess(it)
-            },
-            onCachePullError = {
-              selectedNode.apolloDebugClient.close()
-              onPullError(it)
-            },
-        )
+        onApolloDebugCacheSelected(selectedNode.apolloDebugClient, selectedNode.normalizedCacheInfo.id)
       }
     }
     super.doOKAction()
