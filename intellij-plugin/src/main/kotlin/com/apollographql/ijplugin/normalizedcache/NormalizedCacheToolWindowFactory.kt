@@ -572,7 +572,8 @@ class NormalizedCacheWindowPanel(
           normalizedCache = normalizedCacheResult.getOrThrow().sorted()
           setContent(createNormalizedCacheContent())
           toolbar = createToolbar()
-          setTabName(apolloDebugNormalizedCache.displayName.normalizedCacheSimpleName)
+          val tabNamePrefix = apolloDebugNormalizedCache.clientDisplayName.takeIf { it != "client" }?.let { "$it - " } ?: ""
+          setTabName(tabNamePrefix + apolloDebugNormalizedCache.displayName.normalizedCacheSimpleName)
         }
       }
     }.queue()

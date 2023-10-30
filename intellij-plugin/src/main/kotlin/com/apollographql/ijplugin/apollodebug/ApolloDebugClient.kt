@@ -31,7 +31,7 @@ class ApolloDebugClient(
 
     private fun IDevice.getApolloDebugPackageList(): Result<List<String>> {
       val commandResult = runCatching {
-        AdbShellCommandsUtil.create(this).executeCommandBlocking("cat /proc/net/unix | grep $SOCKET_NAME_PREFIX")
+        AdbShellCommandsUtil.create(this).executeCommandBlocking("cat /proc/net/unix | grep $SOCKET_NAME_PREFIX | cat")
       }
       if (commandResult.isFailure) {
         val e = commandResult.exceptionOrNull()!!

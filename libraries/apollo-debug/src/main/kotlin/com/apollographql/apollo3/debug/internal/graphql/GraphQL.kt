@@ -96,7 +96,8 @@ internal class Query {
     val apolloDebugContext = executionContext[GraphQL.ApolloDebugContext]!!
     val clientId = id.substringBeforeLast(":")
     val cacheId = id.substringAfterLast(":")
-    val apolloClient = apolloDebugContext.apolloClients.entries.firstOrNull { it.value == clientId }?.key
+    val entry = apolloDebugContext.apolloClients.entries.firstOrNull { it.value == clientId }
+    val apolloClient = entry?.key
     if (apolloClient == null) {
       error("Unknown client '$clientId'")
     } else {
@@ -107,6 +108,7 @@ internal class Query {
         return NormalizedCache(
             id = id,
             displayName = cacheId,
+            clientDisplayName = entry.value,
             records = cache.map { (key, record) ->
               KeyedRecord(
                   key = key,
@@ -149,11 +151,14 @@ internal class NormalizedCacheInfo(
 internal class NormalizedCache(
     private val id: String,
     private val displayName: String,
+    private val clientDisplayName: String,
     private val records: List<KeyedRecord>,
 ) {
   fun id() = id
 
   fun displayName() = displayName
+
+  fun clientDisplayName() = clientDisplayName
 
   fun records(): List<KeyedRecord> = records
 }

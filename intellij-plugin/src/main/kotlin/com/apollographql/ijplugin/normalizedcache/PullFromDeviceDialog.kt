@@ -131,7 +131,7 @@ class PullFromDeviceDialog(
       }
 
       is ApolloDebugNormalizedCacheNode -> {
-        // Don't automatically close the apolloClient, we'll close it after pulling the cache
+        // Don't close the apolloClient, it will be closed later by the caller
         apolloDebugClientsToClose.remove(selectedNode.apolloDebugClient)
         selectedNode.apolloDebugClient.getNormalizedCacheAsync(
             project = project,

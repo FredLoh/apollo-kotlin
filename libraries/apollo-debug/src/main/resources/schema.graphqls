@@ -19,6 +19,7 @@ type NormalizedCacheInfo {
 type NormalizedCache {
     id: ID!
     displayName: String!
+    clientDisplayName: String!
     records: [KeyedRecord!]!
 }
 
