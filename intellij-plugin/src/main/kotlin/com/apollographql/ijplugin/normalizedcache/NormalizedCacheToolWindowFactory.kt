@@ -1,6 +1,8 @@
 package com.apollographql.ijplugin.normalizedcache
 
+import com.apollographql.apollo3.debug.GetNormalizedCacheQuery
 import com.apollographql.ijplugin.ApolloBundle
+import com.apollographql.ijplugin.apollodebug.normalizedCacheSimpleName
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.BooleanValue
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.CompositeValue
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.ListValue
@@ -162,11 +164,12 @@ class NormalizedCacheWindowPanel(
         emptyText.appendLine(ApolloBundle.message("normalizedCacheViewer.empty.pullFromDevice"), SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES) {
           PullFromDeviceDialog(
               project,
-              onFilePullError = { throwable ->
+              onPullError = { throwable ->
                 showNotification(project, title = ApolloBundle.message("normalizedCacheViewer.pullFromDevice.pull.error"), content = throwable.message
                     ?: "", type = NotificationType.ERROR)
               },
               onFilePullSuccess = ::openFile,
+              onCachePullSuccess = ::openApolloDebugCache,
           ).show()
         }
       }
@@ -548,6 +551,32 @@ class NormalizedCacheWindowPanel(
       else -> exception.message ?: exception.javaClass.simpleName
     }
     showNotification(project, title = ApolloBundle.message("normalizedCacheViewer.openFileError.title"), content = details, type = NotificationType.ERROR)
+  }
+
+  private fun openApolloDebugCache(apolloDebugNormalizedCache: GetNormalizedCacheQuery.NormalizedCache) {
+    project.telemetryService.logEvent(TelemetryEvent.ApolloIjNormalizedCacheOpenApolloDebugCache())
+    setContent(createLoadingContent())
+    object : Task.Backgroundable(
+        project,
+        ApolloBundle.message("normalizedCacheViewer.loading.message"),
+        false,
+    ) {
+      override fun run(indicator: ProgressIndicator) {
+        val normalizedCacheResult = ApolloDebugNormalizedCacheProvider().provide(apolloDebugNormalizedCache)
+        invokeLater {
+          if (normalizedCacheResult.isFailure) {
+            showOpenFileError(normalizedCacheResult.exceptionOrNull()!!)
+            setContent(createEmptyContent())
+            return@invokeLater
+          }
+          normalizedCache = normalizedCacheResult.getOrThrow().sorted()
+          setContent(createNormalizedCacheContent())
+          toolbar = createToolbar()
+          setTabName(apolloDebugNormalizedCache.displayName.normalizedCacheSimpleName)
+        }
+      }
+    }.queue()
+
   }
 
   private class NormalizedCacheFieldTreeNode(val field: NormalizedCache.Field) : DefaultMutableTreeNode() {

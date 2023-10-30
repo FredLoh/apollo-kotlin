@@ -81,7 +81,7 @@ internal class Query {
       Client(
           id = id,
           displayName = id,
-          normalizedCaches = apolloDebugContext.dumps[apolloClient]!!.keys.map { clazz ->
+          normalizedCacheInfos = apolloDebugContext.dumps[apolloClient]!!.keys.map { clazz ->
             NormalizedCacheInfo(
                 id = "$id:${clazz.qualifiedName!!}",
                 displayName = clazz.qualifiedName!!,
@@ -106,6 +106,7 @@ internal class Query {
       } else {
         return NormalizedCache(
             id = id,
+            displayName = cacheId,
             records = cache.map { (key, record) ->
               KeyedRecord(
                   key = key,
@@ -122,13 +123,13 @@ internal class Query {
 internal class Client(
     private val id: String,
     private val displayName: String,
-    private val normalizedCaches: List<NormalizedCacheInfo>,
+    private val normalizedCacheInfos: List<NormalizedCacheInfo>,
 ) {
   fun id() = id
 
   fun displayName() = displayName
 
-  fun normalizedCaches(): List<NormalizedCacheInfo> = normalizedCaches
+  fun normalizedCacheInfos(): List<NormalizedCacheInfo> = normalizedCacheInfos
 }
 
 @ApolloObject
@@ -147,9 +148,12 @@ internal class NormalizedCacheInfo(
 @ApolloObject
 internal class NormalizedCache(
     private val id: String,
+    private val displayName: String,
     private val records: List<KeyedRecord>,
 ) {
   fun id() = id
+
+  fun displayName() = displayName
 
   fun records(): List<KeyedRecord> = records
 }

@@ -1,8 +1,14 @@
 package com.apollographql.ijplugin.normalizedcache
 
 import android.annotation.SuppressLint
+import com.android.ddmlib.Client
 import com.android.ddmlib.IDevice
+import com.apollographql.apollo3.debug.GetClientsQuery
+import com.apollographql.apollo3.debug.GetNormalizedCacheQuery
 import com.apollographql.ijplugin.ApolloBundle
+import com.apollographql.ijplugin.apollodebug.ApolloDebugClient
+import com.apollographql.ijplugin.apollodebug.ApolloDebugClient.Companion.getApolloDebugClients
+import com.apollographql.ijplugin.apollodebug.normalizedCacheSimpleName
 import com.apollographql.ijplugin.icons.ApolloIcons
 import com.apollographql.ijplugin.ui.tree.DynamicNode
 import com.apollographql.ijplugin.ui.tree.RootDynamicNode
@@ -27,6 +33,7 @@ import com.intellij.ui.treeStructure.SimpleTree
 import com.intellij.ui.treeStructure.SimpleTreeStructure
 import com.intellij.util.ui.tree.TreeUtil
 import icons.StudioIcons
+import kotlinx.coroutines.runBlocking
 import java.awt.event.InputEvent
 import java.io.File
 import javax.swing.event.TreeExpansionEvent
@@ -38,10 +45,13 @@ import javax.swing.tree.TreeSelectionModel
 class PullFromDeviceDialog(
     private val project: Project,
     private val onFilePullSuccess: (File) -> Unit,
-    private val onFilePullError: (Throwable) -> Unit,
+    private val onCachePullSuccess: (GetNormalizedCacheQuery.NormalizedCache) -> Unit,
+    private val onPullError: (Throwable) -> Unit,
 ) : DialogWrapper(project, true), Disposable {
   private lateinit var tree: SimpleTree
   private lateinit var model: StructureTreeModel<PullFromDeviceTreeStructure>
+
+  private val apolloDebugClientsToClose = mutableListOf<ApolloDebugClient>()
 
   init {
     title = ApolloBundle.message("normalizedCacheViewer.pullFromDevice.title")
@@ -87,7 +97,8 @@ class PullFromDeviceDialog(
       })
 
       addTreeSelectionListener {
-        okAction.isEnabled = it.path.lastPathComponent.cast<DefaultMutableTreeNode>()?.userObject is DatabaseNode
+        val selectedNode = it.path.lastPathComponent.cast<DefaultMutableTreeNode>()?.userObject
+        okAction.isEnabled = selectedNode is DatabaseNode || selectedNode is ApolloDebugNormalizedCacheNode
       }
     }
     return tree
@@ -106,21 +117,42 @@ class PullFromDeviceDialog(
   }
 
   override fun doOKAction() {
-    val dbNode = tree.selectionPath?.lastPathComponent.cast<DefaultMutableTreeNode>()?.userObject as? DatabaseNode ?: return
-    pullFileAsync(
-        project = project,
-        device = dbNode.device,
-        packageName = dbNode.packageName,
-        remoteDirName = dbNode.databasesDir,
-        remoteFileName = dbNode.databaseFileName,
-        onFilePullSuccess = onFilePullSuccess,
-        onFilePullError = onFilePullError,
-    )
+    when (val selectedNode = tree.selectionPath?.lastPathComponent.cast<DefaultMutableTreeNode>()?.userObject) {
+      is DatabaseNode -> {
+        pullFileAsync(
+            project = project,
+            device = selectedNode.device,
+            packageName = selectedNode.packageName,
+            remoteDirName = selectedNode.databasesDir,
+            remoteFileName = selectedNode.databaseFileName,
+            onFilePullSuccess = onFilePullSuccess,
+            onFilePullError = onPullError,
+        )
+      }
+
+      is ApolloDebugNormalizedCacheNode -> {
+        // Don't automatically close the apolloClient, we'll close it after pulling the cache
+        apolloDebugClientsToClose.remove(selectedNode.apolloDebugClient)
+        selectedNode.apolloDebugClient.getNormalizedCacheAsync(
+            project = project,
+            id = selectedNode.normalizedCacheInfo.id,
+            onCachePullSuccess = {
+              selectedNode.apolloDebugClient.close()
+              onCachePullSuccess(it)
+            },
+            onCachePullError = {
+              selectedNode.apolloDebugClient.close()
+              onPullError(it)
+            },
+        )
+      }
+    }
     super.doOKAction()
   }
 
   override fun dispose() {
     super.dispose()
+    apolloDebugClientsToClose.forEach { runCatching { it.close() } }
   }
 
   private inner class PullFromDeviceTreeStructure(project: Project, invalidate: () -> Unit) : SimpleTreeStructure() {
@@ -158,26 +190,57 @@ class PullFromDeviceDialog(
     }
 
     override fun computeChildren() {
+      val apolloDebugClients: List<ApolloDebugClient> = device.getApolloDebugClients().getOrDefault(emptyList())
+      apolloDebugClientsToClose.addAll(apolloDebugClients)
+      val clients: List<Client> = device.clients
+          .filter { client ->
+            client.isValid &&
+                client.clientData.packageName != null &&
+                // If a package has the Apollo Debug running, don't show it as a database package
+                client.clientData.packageName !in apolloDebugClients.map { it.packageName }
+          }
+          .sortedBy { it.clientData.packageName }
+
+      val allClients = (apolloDebugClients + clients).sortedBy {
+        when (it) {
+          is ApolloDebugClient -> it.packageName
+          is Client -> it.clientData.packageName
+          else -> throw IllegalStateException()
+        }
+      }
+
       updateChildren(
           buildList {
+            val autoExpand = allClients.size <= 4
+
             // Add running apps
-            val clients = device.clients
-                .filter { it.isValid && it.clientData.packageName != null }
-            val autoExpand = clients.size <= 4
-            addAll(clients
-                .sortedBy { it.clientData.packageName }
-                .map { client ->
-                  val packageName = client.clientData.packageName
-                  val databasesDir = client.clientData.dataDir + "/databases"
-                  PackageNode(
-                      project = project,
-                      parent = this@DeviceNode,
-                      device = device,
-                      packageName = packageName,
-                      databasesDir = databasesDir,
-                      computeChildrenOn = ComputeChildrenOn.INIT,
-                      autoExpand = autoExpand,
-                  )
+            addAll(
+                allClients.map { client ->
+                  when (client) {
+                    is ApolloDebugClient -> ApolloDebugPackageNode(
+                        project = project,
+                        parent = this@DeviceNode,
+                        apolloDebugClient = client,
+                        computeChildrenOn = ComputeChildrenOn.INIT,
+                        autoExpand = autoExpand,
+                    )
+
+                    is Client -> {
+                      val packageName = client.clientData.packageName
+                      val databasesDir = client.clientData.dataDir + "/databases"
+                      DatabasePackageNode(
+                          project = project,
+                          parent = this@DeviceNode,
+                          device = device,
+                          packageName = packageName,
+                          databasesDir = databasesDir,
+                          computeChildrenOn = ComputeChildrenOn.INIT,
+                          autoExpand = autoExpand,
+                      )
+                    }
+
+                    else -> throw IllegalStateException()
+                  }
                 }
             )
 
@@ -211,7 +274,7 @@ class PullFromDeviceDialog(
         } else {
           updateChildren(
               it.map { packageName ->
-                PackageNode(
+                DatabasePackageNode(
                     project = project,
                     parent = this,
                     device = device,
@@ -227,7 +290,7 @@ class PullFromDeviceDialog(
     }
   }
 
-  private inner class PackageNode(
+  private inner class DatabasePackageNode(
       project: Project,
       parent: DynamicNode,
       private val device: IDevice,
@@ -268,6 +331,48 @@ class PullFromDeviceDialog(
     }
   }
 
+  private inner class ApolloDebugPackageNode(
+      project: Project,
+      parent: DynamicNode,
+      private val apolloDebugClient: ApolloDebugClient,
+      computeChildrenOn: ComputeChildrenOn,
+      private val autoExpand: Boolean,
+  ) : DynamicNode(project, parent, computeChildrenOn) {
+    init {
+      myName = apolloDebugClient.packageName
+      icon = ApolloIcons.Node.Package
+    }
+
+    override fun computeChildren() {
+      runBlocking { apolloDebugClient.getClients() }.onFailure {
+        updateChild(ErrorNode(ApolloBundle.message("normalizedCacheViewer.pullFromDevice.listApolloClients.error")))
+      }.onSuccess { clients ->
+        if (clients.isEmpty()) {
+          updateChild(EmptyNode(ApolloBundle.message("normalizedCacheViewer.pullFromDevice.listApolloClients.empty")))
+        } else {
+          val showClientName = clients.size > 1
+          updateChildren(
+              clients
+                  .flatMap { client -> client.normalizedCacheInfos.map { normalizedCacheInfo -> client to normalizedCacheInfo } }
+                  .filter { (_, normalizedCacheInfo) -> normalizedCacheInfo.recordCount != 0 }
+                  .map { (client, normalizedCacheInfo) ->
+                    ApolloDebugNormalizedCacheNode(
+                        apolloDebugClient = apolloDebugClient,
+                        client = client,
+                        normalizedCacheInfo = normalizedCacheInfo,
+                        showClientName = showClientName,
+                    )
+                  }
+          )
+        }
+      }
+    }
+
+    override fun isAutoExpandNode(): Boolean {
+      return autoExpand
+    }
+  }
+
   private inner class DatabaseNode(
       val device: IDevice,
       val packageName: String,
@@ -276,6 +381,26 @@ class PullFromDeviceDialog(
   ) : NullNode() {
     init {
       myName = databaseFileName
+      icon = StudioIcons.DatabaseInspector.DATABASE
+    }
+
+    override fun handleDoubleClickOrEnter(tree: SimpleTree, inputEvent: InputEvent) {
+      doOKAction()
+    }
+  }
+
+  private inner class ApolloDebugNormalizedCacheNode(
+      val apolloDebugClient: ApolloDebugClient,
+      client: GetClientsQuery.Client,
+      val normalizedCacheInfo: GetClientsQuery.NormalizedCacheInfo,
+      showClientName: Boolean,
+  ) : NullNode() {
+    init {
+      myName = if (showClientName) {
+        "${client.displayName} - ${normalizedCacheInfo.displayName.normalizedCacheSimpleName}"
+      } else {
+        normalizedCacheInfo.displayName.normalizedCacheSimpleName
+      }
       icon = StudioIcons.DatabaseInspector.DATABASE
     }
 

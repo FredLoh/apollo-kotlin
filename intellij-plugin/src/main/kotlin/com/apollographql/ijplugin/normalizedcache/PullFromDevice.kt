@@ -4,12 +4,6 @@ import com.android.ddmlib.AndroidDebugBridge
 import com.android.ddmlib.IDevice
 import com.android.ddmlib.SyncService
 import com.android.tools.idea.adb.AdbShellCommandsUtil
-import com.apollographql.apollo3.annotations.ApolloInternal
-import com.apollographql.apollo3.api.http.HttpMethod
-import com.apollographql.apollo3.api.http.HttpRequest
-import com.apollographql.apollo3.api.json.jsonReader
-import com.apollographql.apollo3.api.json.readAny
-import com.apollographql.apollo3.network.http.DefaultHttpEngine
 import com.apollographql.ijplugin.ApolloBundle
 import com.apollographql.ijplugin.util.logd
 import com.apollographql.ijplugin.util.logw
@@ -18,12 +12,8 @@ import com.intellij.openapi.application.invokeLater
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import kotlinx.coroutines.runBlocking
 import java.io.File
 import java.util.concurrent.TimeUnit
-
-private const val APOLLO_DEBUG_SOCKET_NAME_PREFIX = "apollo_debug_"
-private const val APOLLO_DEBUG_PORT = 12200
 
 val isAndroidPluginPresent = try {
   Class.forName("com.android.ddmlib.AndroidDebugBridge")
@@ -76,61 +66,6 @@ fun IDevice.getDatabaseList(packageName: String, databasesDir: String): Result<L
     return Result.failure(Exception(message))
   }
   return Result.success(result.output.filter { it.isDatabaseFileName() }.sorted())
-}
-
-private fun IDevice.getApolloDebugPackageList(): Result<List<String>> {
-  val commandResult = runCatching {
-    AdbShellCommandsUtil.create(this).executeCommandBlocking("cat /proc/net/unix | grep $APOLLO_DEBUG_SOCKET_NAME_PREFIX")
-  }
-  if (commandResult.isFailure) {
-    val e = commandResult.exceptionOrNull()!!
-    logw(e, "Could not list Apollo Debug packages")
-    return Result.failure(e)
-  }
-  val result = commandResult.getOrThrow()
-  if (result.isError) {
-    val message = "Could not list Apollo Debug packages: ${result.output.joinToString()}"
-    logw(message)
-    return Result.failure(Exception(message))
-  }
-  // Results are in the form:
-  // 0000000000000000: 00000002 00000000 00010000 0001 01 116651 @apollo_debug_com.example.myapplication
-  return Result.success(result.output
-      .filter { it.contains(APOLLO_DEBUG_SOCKET_NAME_PREFIX) }
-      .map { it.substringAfterLast(APOLLO_DEBUG_SOCKET_NAME_PREFIX) }
-      .sorted()
-  )
-}
-
-private fun IDevice.createApolloDebugPortForward(packageName: String) {
-  createForward(APOLLO_DEBUG_PORT, "$APOLLO_DEBUG_SOCKET_NAME_PREFIX$packageName", IDevice.DeviceUnixSocketNamespace.ABSTRACT)
-}
-
-private fun IDevice.removeApolloDebugPortForward() {
-  removeForward(APOLLO_DEBUG_PORT)
-}
-
-suspend fun IDevice.getApolloDebugVersion(packageName: String): Int? {
-  createApolloDebugPortForward(packageName)
-  try {
-    val httpResponse = DefaultHttpEngine().execute(HttpRequest.Builder(HttpMethod.Get, "http://localhost:$APOLLO_DEBUG_PORT/version").build())
-
-    @OptIn(ApolloInternal::class)
-    val map = httpResponse.body?.jsonReader()?.readAny() as? Map<*, *>
-    val version = (map?.get("data") as? Map<*, *>)?.get("version") as? Int
-    return version
-  } finally {
-    removeApolloDebugPortForward()
-  }
-}
-
-fun IDevice.getAllVersions() {
-  getApolloDebugPackageList().onSuccess { apolloDebugPackageList ->
-    apolloDebugPackageList.forEach { packageName ->
-      val version = runBlocking { getApolloDebugVersion(packageName) }
-      logd("$packageName: $version")
-    }
-  }
 }
 
 fun pullFileAsync(
