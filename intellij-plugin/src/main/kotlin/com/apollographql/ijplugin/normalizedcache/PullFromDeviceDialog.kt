@@ -389,6 +389,7 @@ class PullFromDeviceDialog(
       } else {
         normalizedCacheInfo.displayName.normalizedCacheSimpleName
       }
+      presentation.locationString = ApolloBundle.message("normalizedCacheViewer.pullFromDevice.apolloDebugNormalizedCache.records", normalizedCacheInfo.recordCount)
       icon = StudioIcons.DatabaseInspector.DATABASE
     }
 

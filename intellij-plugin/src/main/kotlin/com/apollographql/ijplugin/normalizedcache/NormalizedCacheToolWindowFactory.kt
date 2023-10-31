@@ -153,6 +153,7 @@ class NormalizedCacheWindowPanel(
 
   private var apolloDebugClient: ApolloDebugClient? = null
   private var apolloDebugCacheId: String? = null
+  private var isRefreshing = false
 
   init {
     setContent(createEmptyContent())
@@ -279,7 +280,8 @@ class NormalizedCacheWindowPanel(
         }
 
         override fun update(e: AnActionEvent) {
-          e.presentation.isEnabledAndVisible = apolloDebugCacheId != null && apolloDebugClient != null
+          e.presentation.isVisible = apolloDebugCacheId != null && apolloDebugClient != null
+          e.presentation.isEnabled = !isRefreshing
         }
 
         override fun getActionUpdateThread() = ActionUpdateThread.BGT
@@ -616,11 +618,13 @@ class NormalizedCacheWindowPanel(
         false,
     ) {
       override fun run(indicator: ProgressIndicator) {
+        isRefreshing = true
         val normalizedCacheResult = runBlocking {
           apolloDebugClient!!.getNormalizedCache(apolloDebugCacheId!!)
         }.mapCatching { apolloDebugNormalizedCache ->
           ApolloDebugNormalizedCacheProvider().provide(apolloDebugNormalizedCache).getOrThrow()
         }
+        isRefreshing = false
         invokeLater {
           if (normalizedCacheResult.isFailure) {
             showOpenFileError(normalizedCacheResult.exceptionOrNull()!!)
