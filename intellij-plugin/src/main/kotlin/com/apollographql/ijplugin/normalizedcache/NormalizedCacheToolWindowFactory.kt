@@ -628,6 +628,8 @@ class NormalizedCacheWindowPanel(
           }
           normalizedCache = normalizedCacheResult.getOrThrow().sorted()
           setContent(createNormalizedCacheContent())
+          toolbar = null
+          toolbar = createToolbar()
         }
       }
     }.queue()
