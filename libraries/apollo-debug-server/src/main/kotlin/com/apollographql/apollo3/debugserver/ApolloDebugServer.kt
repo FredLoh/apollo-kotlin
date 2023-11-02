@@ -1,10 +1,10 @@
-package com.apollographql.apollo3.debug
+package com.apollographql.apollo3.debugserver
 
 import android.net.LocalServerSocket
 import android.net.LocalSocket
 import com.apollographql.apollo3.ApolloClient
-import com.apollographql.apollo3.debug.internal.ApolloDebugInitializer
-import com.apollographql.apollo3.debug.internal.graphql.GraphQL
+import com.apollographql.apollo3.debugserver.internal.ApolloDebugServerInitializer
+import com.apollographql.apollo3.debugserver.internal.graphql.GraphQL
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -15,11 +15,9 @@ import java.io.BufferedReader
 import java.io.PrintStream
 import java.util.concurrent.Executors
 
-object ApolloDebug {
-  internal const val SOCKET_NAME_PREFIX = "apollo_debug_"
-
+object ApolloDebugServer {
   private val apolloClients = mutableMapOf<ApolloClient, String>()
-  private var server: ApolloDebugServer? = null
+  private var server: Server? = null
 
   fun registerApolloClient(apolloClient: ApolloClient, id: String = "client") {
     if (apolloClients.containsKey(apolloClient)) error("Client '$apolloClient' already registered")
@@ -38,7 +36,7 @@ object ApolloDebug {
       server?.stop()
     } else {
       if (server == null) {
-        server = ApolloDebugServer(apolloClients).apply {
+        server = Server(apolloClients).apply {
           start()
         }
       }
@@ -46,9 +44,13 @@ object ApolloDebug {
   }
 }
 
-private class ApolloDebugServer(
+private class Server(
     apolloClients: Map<ApolloClient, String>,
 ) {
+  companion object {
+    private const val SOCKET_NAME_PREFIX = "apollo_debug_"
+  }
+
   private var localServerSocket: LocalServerSocket? = null
   private val dispatcher = Executors.newCachedThreadPool().asCoroutineDispatcher()
   private val coroutineScope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -57,7 +59,7 @@ private class ApolloDebugServer(
 
   fun start() {
     if (localServerSocket != null) error("Already started")
-    val localServerSocket = LocalServerSocket("${ApolloDebug.SOCKET_NAME_PREFIX}${ApolloDebugInitializer.packageName}")
+    val localServerSocket = LocalServerSocket("$SOCKET_NAME_PREFIX${ApolloDebugServerInitializer.packageName}")
     this.localServerSocket = localServerSocket
     coroutineScope.launch {
       while (true) {

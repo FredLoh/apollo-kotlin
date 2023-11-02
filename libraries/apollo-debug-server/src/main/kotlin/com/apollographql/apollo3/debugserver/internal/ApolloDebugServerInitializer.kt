@@ -1,9 +1,9 @@
-package com.apollographql.apollo3.debug.internal
+package com.apollographql.apollo3.debugserver.internal
 
 import android.content.Context
 import androidx.startup.Initializer
 
-internal class ApolloDebugInitializer : Initializer<Unit> {
+internal class ApolloDebugServerInitializer : Initializer<Unit> {
   override fun create(context: Context) {
     packageName = context.packageName
   }

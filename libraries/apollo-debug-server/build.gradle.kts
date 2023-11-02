@@ -6,7 +6,7 @@ plugins {
 }
 
 apolloLibrary(
-    javaModuleName = "com.apollographql.apollo3.debug"
+    javaModuleName = "com.apollographql.apollo3.debugserver"
 )
 
 dependencies {
@@ -15,14 +15,14 @@ dependencies {
   implementation(libs.androidx.startup.runtime)
 
   ksp(project(":apollo-ksp"))
-  ksp(apollo.apolloKspProcessor(file("src/main/resources/schema.graphqls"), "apolloDebug", "com.apollographql.apollo3.debug.internal.graphql"))
+  ksp(apollo.apolloKspProcessor(file("src/main/resources/schema.graphqls"), "apolloDebugServer", "com.apollographql.apollo3.debugserver.internal.graphql"))
 
   testImplementation(libs.kotlin.test.junit)
 }
 
 android {
   compileSdk = libs.versions.android.sdkversion.compile.get().toInt()
-  namespace = "com.apollographql.apollo3.debug"
+  namespace = "com.apollographql.apollo3.debugserver"
 
   defaultConfig {
     minSdk = libs.versions.android.sdkversion.min.get().toInt()

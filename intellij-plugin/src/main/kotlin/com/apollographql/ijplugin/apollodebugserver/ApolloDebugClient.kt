@@ -1,4 +1,4 @@
-package com.apollographql.ijplugin.apollodebug
+package com.apollographql.ijplugin.apollodebugserver
 
 import com.android.ddmlib.IDevice
 import com.android.tools.idea.adb.AdbShellCommandsUtil
@@ -63,19 +63,19 @@ class ApolloDebugClient(
       .serverUrl("http://localhost:$port")
       .build()
 
-  private fun createApolloDebugPortForward() {
+  private fun createPortForward() {
     device.createForward(port, "$SOCKET_NAME_PREFIX$packageName", IDevice.DeviceUnixSocketNamespace.ABSTRACT)
     hasPortForward = true
   }
 
-  private fun removeApolloDebugPortForward() {
+  private fun removePortForward() {
     device.removeForward(port)
     hasPortForward = false
   }
 
   private fun ensurePortForward() {
     if (!hasPortForward) {
-      createApolloDebugPortForward()
+      createPortForward()
     }
   }
 
@@ -91,7 +91,7 @@ class ApolloDebugClient(
 
   override fun close() {
     if (hasPortForward) {
-      removeApolloDebugPortForward()
+      removePortForward()
     }
     apolloClient.close()
   }

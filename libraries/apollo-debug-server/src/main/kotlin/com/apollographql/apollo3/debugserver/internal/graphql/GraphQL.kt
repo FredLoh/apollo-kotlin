@@ -1,4 +1,4 @@
-package com.apollographql.apollo3.debug.internal.graphql
+package com.apollographql.apollo3.debugserver.internal.graphql
 
 import com.apollographql.apollo3.ApolloClient
 import com.apollographql.apollo3.annotations.ApolloAdapter
@@ -15,8 +15,8 @@ import com.apollographql.apollo3.ast.toSchema
 import com.apollographql.apollo3.cache.normalized.api.CacheKey
 import com.apollographql.apollo3.cache.normalized.api.Record
 import com.apollographql.apollo3.cache.normalized.apolloStore
-import com.apollographql.apollo3.debug.internal.graphql.execution.ApolloDebugAdapterRegistry
-import com.apollographql.apollo3.debug.internal.graphql.execution.ApolloDebugResolver
+import com.apollographql.apollo3.debugserver.internal.graphql.execution.ApolloDebugServerAdapterRegistry
+import com.apollographql.apollo3.debugserver.internal.graphql.execution.ApolloDebugServerResolver
 import com.apollographql.apollo3.execution.ExecutableSchema
 import com.apollographql.apollo3.execution.GraphQLRequest
 import com.apollographql.apollo3.execution.GraphQLRequestError
@@ -40,8 +40,8 @@ internal class GraphQL(
 
     ExecutableSchema.Builder()
         .schema(schema)
-        .resolver(ApolloDebugResolver())
-        .adapterRegistry(ApolloDebugAdapterRegistry)
+        .resolver(ApolloDebugServerResolver())
+        .adapterRegistry(ApolloDebugServerAdapterRegistry)
         .build()
   }
 
