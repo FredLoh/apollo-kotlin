@@ -3,7 +3,6 @@ package com.apollographql.apollo3.debug
 import android.net.LocalServerSocket
 import android.net.LocalSocket
 import com.apollographql.apollo3.ApolloClient
-import com.apollographql.apollo3.api.http.HttpRequest
 import com.apollographql.apollo3.debug.internal.ApolloDebugInitializer
 import com.apollographql.apollo3.debug.internal.graphql.GraphQL
 import kotlinx.coroutines.CancellationException
@@ -48,7 +47,7 @@ object ApolloDebug {
 }
 
 private class ApolloDebugServer(
-  apolloClients: Map<ApolloClient, String>,
+    apolloClients: Map<ApolloClient, String>,
 ) {
   private var localServerSocket: LocalServerSocket? = null
   private val dispatcher = Executors.newCachedThreadPool().asCoroutineDispatcher()
@@ -95,10 +94,10 @@ private class ApolloDebugServer(
   }
 
   private class HttpRequest(
-    val method: String,
-    val path: String,
-    val headers: List<Pair<String, String>>,
-    val body: String?,
+      val method: String,
+      val path: String,
+      val headers: List<Pair<String, String>>,
+      val body: String?,
   )
 
   private fun readHttpRequest(bufferedReader: BufferedReader): HttpRequest {

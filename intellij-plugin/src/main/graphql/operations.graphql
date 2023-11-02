@@ -1,6 +1,5 @@
 query GetClients {
   clients {
-    id
     displayName
     normalizedCacheInfos {
       id
@@ -12,11 +11,11 @@ query GetClients {
 
 query GetNormalizedCache($id: ID!){
   normalizedCache(id: $id) {
-    id
     displayName
     clientDisplayName
     records {
       key
+      size
       record
     }
   }

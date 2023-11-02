@@ -26,6 +26,7 @@ type NormalizedCache {
 type KeyedRecord {
     key: String!
     record: Record!
+    size: Int!
 }
 
 scalar Record

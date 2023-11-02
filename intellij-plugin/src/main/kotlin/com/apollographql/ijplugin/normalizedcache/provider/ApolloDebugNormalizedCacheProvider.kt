@@ -1,7 +1,8 @@
-package com.apollographql.ijplugin.normalizedcache
+package com.apollographql.ijplugin.normalizedcache.provider
 
 import com.apollographql.apollo3.cache.normalized.api.CacheKey
 import com.apollographql.apollo3.debug.GetNormalizedCacheQuery
+import com.apollographql.ijplugin.normalizedcache.NormalizedCache
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue
 
 class ApolloDebugNormalizedCacheProvider : NormalizedCacheProvider<GetNormalizedCacheQuery.NormalizedCache> {
@@ -10,8 +11,9 @@ class ApolloDebugNormalizedCacheProvider : NormalizedCacheProvider<GetNormalized
       NormalizedCache(
           parameters.records.map { record ->
             NormalizedCache.Record(
-                record.key,
-                record.record.toField()
+                key = record.key,
+                fields = record.record.toField(),
+                size = record.size
             )
           }
       )

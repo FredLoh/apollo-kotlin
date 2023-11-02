@@ -10,6 +10,8 @@ import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.Nul
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.NumberValue
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.Reference
 import com.apollographql.ijplugin.normalizedcache.NormalizedCache.FieldValue.StringValue
+import com.apollographql.ijplugin.normalizedcache.provider.ApolloDebugNormalizedCacheProvider
+import com.apollographql.ijplugin.normalizedcache.provider.DatabaseNormalizedCacheProvider
 import com.apollographql.ijplugin.telemetry.TelemetryEvent
 import com.apollographql.ijplugin.telemetry.telemetryService
 import com.apollographql.ijplugin.util.logw

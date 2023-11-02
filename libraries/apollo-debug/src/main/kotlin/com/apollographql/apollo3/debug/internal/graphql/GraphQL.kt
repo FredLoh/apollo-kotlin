@@ -171,6 +171,8 @@ internal class KeyedRecord(
   fun key() = key
 
   fun record() = record
+
+  fun size() = record.sizeInBytes
 }
 
 @ApolloAdapter
