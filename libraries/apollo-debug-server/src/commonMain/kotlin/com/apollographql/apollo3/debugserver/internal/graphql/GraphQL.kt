@@ -22,19 +22,17 @@ import com.apollographql.apollo3.execution.GraphQLRequest
 import com.apollographql.apollo3.execution.GraphQLRequestError
 import com.apollographql.apollo3.execution.parsePostGraphQLRequest
 import okio.Buffer
-import okio.buffer
-import okio.source
 import kotlin.reflect.KClass
+
+internal expect fun KClass<*>.normalizedCacheName(): String
+
+internal expect fun getExecutableSchema(): String
 
 internal class GraphQL(
     private val apolloClients: Map<ApolloClient, String>,
 ) {
   private val executableSchema: ExecutableSchema by lazy {
-    val schema = Query::class.java.classLoader!!
-        .getResourceAsStream("schema.graphqls")!!
-        .source()
-        .buffer()
-        .readUtf8()
+    val schema = getExecutableSchema()
         .toGQLDocument()
         .toSchema()
 
@@ -83,8 +81,8 @@ internal class Query {
           displayName = id,
           normalizedCacheInfos = apolloDebugContext.dumps[apolloClient]!!.keys.map { clazz ->
             NormalizedCacheInfo(
-                id = "$id:${clazz.qualifiedName!!}",
-                displayName = clazz.qualifiedName!!,
+                id = "$id:${clazz.normalizedCacheName()}",
+                displayName = clazz.normalizedCacheName(),
                 recordCount = apolloDebugContext.dumps[apolloClient]!![clazz]!!.size
             )
           }
@@ -101,7 +99,7 @@ internal class Query {
     if (apolloClient == null) {
       error("Unknown client '$clientId'")
     } else {
-      val cache = apolloDebugContext.dumps[apolloClient]!!.entries.firstOrNull { it.key.qualifiedName == cacheId }?.value
+      val cache = apolloDebugContext.dumps[apolloClient]!!.entries.firstOrNull { it.key.normalizedCacheName() == cacheId }?.value
       if (cache == null) {
         error("Unknown cache '$cacheId' for client '$clientId'")
       } else {

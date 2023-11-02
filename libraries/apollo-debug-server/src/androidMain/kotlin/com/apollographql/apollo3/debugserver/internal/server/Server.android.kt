@@ -1,10 +1,10 @@
-package com.apollographql.apollo3.debugserver
+package com.apollographql.apollo3.debugserver.internal.server
 
 import android.net.LocalServerSocket
 import android.net.LocalSocket
 import com.apollographql.apollo3.ApolloClient
-import com.apollographql.apollo3.debugserver.internal.ApolloDebugServerInitializer
 import com.apollographql.apollo3.debugserver.internal.graphql.GraphQL
+import com.apollographql.apollo3.debugserver.internal.initializer.ApolloDebugServerInitializer
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -15,38 +15,13 @@ import java.io.BufferedReader
 import java.io.PrintStream
 import java.util.concurrent.Executors
 
-object ApolloDebugServer {
-  private val apolloClients = mutableMapOf<ApolloClient, String>()
-  private var server: Server? = null
-
-  fun registerApolloClient(apolloClient: ApolloClient, id: String = "client") {
-    if (apolloClients.containsKey(apolloClient)) error("Client '$apolloClient' already registered")
-    if (apolloClients.containsValue(id)) error("Name '$id' already registered")
-    apolloClients[apolloClient] = id
-    startOrStopAgent()
-  }
-
-  fun unregisterApolloClient(apolloClient: ApolloClient) {
-    apolloClients.remove(apolloClient)
-    startOrStopAgent()
-  }
-
-  private fun startOrStopAgent() {
-    if (apolloClients.isEmpty()) {
-      server?.stop()
-    } else {
-      if (server == null) {
-        server = Server(apolloClients).apply {
-          start()
-        }
-      }
-    }
-  }
-}
-
-private class Server(
+internal actual fun createServer(
     apolloClients: Map<ApolloClient, String>,
-) {
+): Server = AndroidServer(apolloClients)
+
+private class AndroidServer(
+    apolloClients: Map<ApolloClient, String>,
+) : Server {
   companion object {
     private const val SOCKET_NAME_PREFIX = "apollo_debug_"
   }
@@ -57,7 +32,7 @@ private class Server(
 
   private val graphQL = GraphQL(apolloClients)
 
-  fun start() {
+  override fun start() {
     if (localServerSocket != null) error("Already started")
     val localServerSocket = LocalServerSocket("$SOCKET_NAME_PREFIX${ApolloDebugServerInitializer.packageName}")
     this.localServerSocket = localServerSocket
@@ -122,7 +97,7 @@ private class Server(
     return HttpRequest(method, path, headers, body)
   }
 
-  fun stop() {
+  override fun stop() {
     runCatching { localServerSocket?.close() }
     coroutineScope.cancel()
     dispatcher.close()
