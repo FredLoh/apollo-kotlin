@@ -1,3 +1,4 @@
+import com.android.build.gradle.tasks.BundleAar
 import org.jetbrains.kotlin.gradle.tasks.Kotlin2JsCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinNativeCompile
@@ -21,7 +22,9 @@ kotlin {
 
       dependencies {
         implementation(project(":apollo-normalized-cache"))
-        implementation(project(":apollo-execution"))
+
+        // apollo-execution is not published: we bundle it into the aar artifact
+        compileOnly(project(":apollo-execution"))
       }
     }
 
@@ -33,10 +36,20 @@ kotlin {
   }
 }
 
+val shadow = configurations.create("shadow") {
+  isCanBeConsumed = false
+  isCanBeResolved = true
+}
+
 dependencies {
   add("kspCommonMainMetadata", project(":apollo-ksp"))
   add("kspCommonMainMetadata", apollo.apolloKspProcessor(file("src/androidMain/resources/schema.graphqls"), "apolloDebugServer", "com.apollographql.apollo3.debugserver.internal.graphql"))
+  add(shadow.name, project(":apollo-execution")) {
+    isTransitive = false
+  }
 }
+
+configurations.getByName("compileOnly").extendsFrom(shadow)
 
 android {
   compileSdk = libs.versions.android.sdkversion.compile.get().toInt()
@@ -47,6 +60,7 @@ android {
   }
 }
 
+// KMP ksp configuration inspired by https://medium.com/@actiwerks/setting-up-kotlin-multiplatform-with-ksp-7f598b1681bf
 tasks.withType<KotlinCompile>().configureEach {
   dependsOn("kspCommonMainKotlinMetadata")
 }
@@ -62,5 +76,19 @@ tasks.withType<KotlinNativeCompile>().configureEach {
 tasks.configureEach {
   if (name.endsWith("sourcesJar", ignoreCase = true)) {
     dependsOn("kspCommonMainKotlinMetadata")
+  }
+}
+
+// apollo-execution is not published: we bundle it into the aar artifact
+val jarApolloExecution = tasks.register<Jar>("jarApolloExecution") {
+  archiveBaseName.set("apollo-execution")
+  from(provider {
+    shadow.files.map { zipTree(it) }
+  })
+}
+
+tasks.withType<BundleAar>().configureEach {
+  from(jarApolloExecution) {
+    into("libs")
   }
 }
