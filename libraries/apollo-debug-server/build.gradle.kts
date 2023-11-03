@@ -47,19 +47,19 @@ android {
   }
 }
 
-tasks.withType<KotlinCompile> {
+tasks.withType<KotlinCompile>().configureEach {
   dependsOn("kspCommonMainKotlinMetadata")
 }
 
-tasks.withType<Kotlin2JsCompile> {
+tasks.withType<Kotlin2JsCompile>().configureEach {
   dependsOn("kspCommonMainKotlinMetadata")
 }
 
-tasks.withType<KotlinNativeCompile> {
+tasks.withType<KotlinNativeCompile>().configureEach {
   dependsOn("kspCommonMainKotlinMetadata")
 }
 
-tasks.all {
+tasks.configureEach {
   if (name.endsWith("sourcesJar", ignoreCase = true)) {
     dependsOn("kspCommonMainKotlinMetadata")
   }
