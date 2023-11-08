@@ -18,16 +18,18 @@ import com.apollographql.apollo3.network.websocket.WebSocket
 import com.apollographql.apollo3.network.websocket.WebSocketEngine
 import com.apollographql.apollo3.network.websocket.WebSocketListener
 import com.apollographql.apollo3.testing.internal.runTest
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeout
 import okio.ByteString.Companion.toByteString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 
-private class Item(
+private data class Item(
     val message: WebSocketMessage? = null,
     val open: Boolean = false,
     val throwable: Throwable? = null,
@@ -56,7 +58,7 @@ private class Listener(private val channel: Channel<Item>) : WebSocketListener {
 }
 
 private fun debug(line: String) {
-  if (true) {
+  if (false) {
     println(line)
   }
 }
@@ -156,18 +158,31 @@ class WebSocketEngineTest {
     }
   }
 
+  @OptIn(ExperimentalCoroutinesApi::class)
   @Test
   fun serverClose() = test {
     clientReader.awaitOpen()
 
     serverWriter.enqueueMessage(CloseFrame(1002, "Server Bye"))
 
-    clientReader.awaitMessage().apply {
-      assertIs<CloseFrame>(this)
-      assertEquals(1002, code)
-      assertEquals("Server Bye", reason)
+    val item = clientReader.awaitItem()
+
+    if (item.message != null) {
+      item.message.apply {
+        assertIs<CloseFrame>(this)
+        assertEquals(1002, code)
+        assertEquals("Server Bye", reason)
+      }
+    } else if (item.throwable != null) {
+      // Apple implementation calls onError instead on onClose
     }
+
+    assertTrue(clientReader.isEmpty)
   }
+}
+
+private suspend fun Channel<Item>.awaitItem(): Item = withTimeout(1.seconds) {
+  receive()
 }
 
 private suspend fun Channel<Item>.awaitMessage(): WebSocketMessage = withTimeout(1.seconds) {

@@ -6,6 +6,15 @@ interface WebSocketEngine {
   /**
    * Creates a new [WebSocket].
    *
+   * The [WebSocket] starts in unconnected state where no calls to [listener] will be made.
+   * Call [WebSocket.connect] when ready to start the network connection.
+   *
+   * The [WebSocket] will be garbage collected when not used anymore. To trigger
+   * that from the client side, call [WebSocket.close]. You don't need to call [WebSocket.close] if:
+   * - [WebSocket.connect] was never called
+   * - [WebSocketListener.onError] has been called
+   * - [WebSocketListener.onClosed] has been called
+   *
    * @param url: an url starting with one of:
    * - ws://
    * - wss://
@@ -23,35 +32,37 @@ interface WebSocketEngine {
 
 interface WebSocketListener {
   /**
-   * The HTTP 101 Switching Protocols response has been received and is valid
+   * The HTTP 101 Switching Protocols response has been received and is valid.
    */
   fun onOpen()
 
   /**
-   * A text message has been received
+   * A text message has been received.
    */
   fun onMessage(text: String)
 
 
   /**
-   * A data message has been received
+   * A data message has been received.
    */
   fun onMessage(data: ByteArray)
 
   /**
-   * An error happened, no more calls to the listener are made
+   * An error happened, no more calls to the listener are made.
    */
   fun onError(throwable: Throwable)
 
   /**
-   * The server sent a close frame, no more calls to the listener are made
+   * The server sent a close frame, no more calls to the listener are made.
    */
   fun onClosed(code: Int?, reason: String?)
 }
 
 interface WebSocket {
   /**
-   * Opens and starts reading the socket. No calls to the listener are made before [connect]
+   * Connects to the peer and starts reading the socket.
+   *
+   * No calls to the listener are made before [connect]
    */
   fun connect()
 
@@ -71,15 +82,17 @@ interface WebSocket {
   fun send(text: String)
 
   /**
-   * closes the websocket gracefully and asynchronously. No more calls to the listener are made
+   * Closes the websocket gracefully and asynchronously.
    *
-   * On Apple, cancelWithCloseCode calls the URLSession delegate with the same (client) code making it impossible to
-   * retrieve the server code. For this reason, this call is terminal and does not trigger the listener.
+   * After this call, no more calls to the listener are made
+   *
+   * Note: there is no API to retrieve the server close code because Apple cancelWithCloseCode calls the
+   * URLSession delegate with the same (client) code.
    */
   fun close(code: Int, reason: String)
 }
 
 expect fun WebSocketEngine() : WebSocketEngine
 
-const val CLOSE_NORMAL = 1000
-const val CLOSE_GOING_AWAY = 1001
+internal const val CLOSE_NORMAL = 1000
+internal const val CLOSE_GOING_AWAY = 1001

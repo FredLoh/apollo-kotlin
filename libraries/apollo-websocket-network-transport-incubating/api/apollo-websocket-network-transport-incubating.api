@@ -118,24 +118,6 @@ public abstract interface class com/apollographql/apollo3/network/websocket/Star
 	public abstract fun stop ()V
 }
 
-public final class com/apollographql/apollo3/network/websocket/SubscribableWebSocket : com/apollographql/apollo3/network/websocket/WebSocketListener {
-	public fun <init> (Lcom/apollographql/apollo3/network/websocket/WebSocketEngine;Ljava/lang/String;Ljava/util/List;JLkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlin/jvm/functions/Function0;Lkotlinx/coroutines/CoroutineDispatcher;Lcom/apollographql/apollo3/network/websocket/WsProtocol;Lkotlin/jvm/functions/Function2;JJ)V
-	public final fun closeConnection (Ljava/lang/Throwable;)V
-	public final fun connect ()V
-	public fun onClosed (Ljava/lang/Integer;Ljava/lang/String;)V
-	public fun onError (Ljava/lang/Throwable;)V
-	public fun onMessage (Ljava/lang/String;)V
-	public fun onMessage ([B)V
-	public fun onOpen ()V
-	public final fun startOperation (Lcom/apollographql/apollo3/api/ApolloRequest;Lcom/apollographql/apollo3/network/websocket/OperationListener;)Lcom/apollographql/apollo3/network/websocket/StartedOperation;
-}
-
-public final class com/apollographql/apollo3/network/websocket/SubscribableWebSocket$DefaultStartedOperation : com/apollographql/apollo3/network/websocket/StartedOperation {
-	public fun <init> (Lcom/apollographql/apollo3/network/websocket/SubscribableWebSocket;Lcom/apollographql/apollo3/api/ApolloRequest;)V
-	public final fun getRequest ()Lcom/apollographql/apollo3/api/ApolloRequest;
-	public fun stop ()V
-}
-
 public final class com/apollographql/apollo3/network/websocket/SubscriptionWsProtocol : com/apollographql/apollo3/network/websocket/WsProtocol {
 	public fun <init> (Lkotlin/jvm/functions/Function1;)V
 	public fun connectionInit (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
@@ -169,11 +151,6 @@ public abstract interface class com/apollographql/apollo3/network/websocket/WebS
 public abstract interface class com/apollographql/apollo3/network/websocket/WebSocketEngine {
 	public abstract fun newWebSocket (Ljava/lang/String;Ljava/util/List;Lcom/apollographql/apollo3/network/websocket/WebSocketListener;)Lcom/apollographql/apollo3/network/websocket/WebSocket;
 	public static synthetic fun newWebSocket$default (Lcom/apollographql/apollo3/network/websocket/WebSocketEngine;Ljava/lang/String;Ljava/util/List;Lcom/apollographql/apollo3/network/websocket/WebSocketListener;ILjava/lang/Object;)Lcom/apollographql/apollo3/network/websocket/WebSocket;
-}
-
-public final class com/apollographql/apollo3/network/websocket/WebSocketEngineKt {
-	public static final field CLOSE_GOING_AWAY I
-	public static final field CLOSE_NORMAL I
 }
 
 public final class com/apollographql/apollo3/network/websocket/WebSocketEngine_jvmKt {

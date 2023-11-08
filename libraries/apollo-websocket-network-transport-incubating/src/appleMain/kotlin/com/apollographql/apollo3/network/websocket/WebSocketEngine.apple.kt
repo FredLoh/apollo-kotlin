@@ -28,6 +28,13 @@ class AppleWebSocketEngine : WebSocketEngine {
   }
 }
 
+/**
+ * Peculiarities of NSURLSesssionWebSocketTask:
+ * - cancelWithCloseCode(code) calls didCloseWithCode with the same client code, making it impossible to detect the server close code
+ * - sometimes cancelWithCloseCode(code) doesn't send the close frame to the server (https://developer.apple.com/forums/thread/679446)
+ * - when the server close frame is received, the receive completion handler is called first with an error, making it quite difficult
+ * to detect server close
+ */
 class AppleWebSocket(
     private val url: String,
     private val headers: List<HttpHeader>,

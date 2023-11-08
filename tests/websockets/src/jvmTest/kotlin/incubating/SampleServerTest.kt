@@ -49,12 +49,16 @@ class SampleServerTest {
     }
   }
 
+  private val networkTransportBuilder = WebSocketNetworkTransport.Builder()
+      .wsProtocolBuilder(SubscriptionWsProtocol.Builder())
+
+
   @Test
   fun simple() {
     val apolloClient = ApolloClient.Builder()
         .serverUrl("unused")
         .subscriptionNetworkTransport(
-            WebSocketNetworkTransport.Builder()
+            networkTransportBuilder
                 .serverUrl(sampleServer.subscriptionsUrl())
                 .build()
         )
@@ -98,7 +102,7 @@ class SampleServerTest {
 
   @Test
   fun idleTimeout() {
-    val transport = WebSocketNetworkTransport.Builder().serverUrl(
+    val transport = networkTransportBuilder.serverUrl(
         serverUrl = sampleServer.subscriptionsUrl(),
     ).idleTimeoutMillis(
         idleTimeoutMillis = 1000
@@ -150,7 +154,7 @@ class SampleServerTest {
 
   @Test
   fun serverTermination() {
-    val transport = WebSocketNetworkTransport.Builder().serverUrl(
+    val transport = networkTransportBuilder.serverUrl(
         serverUrl = sampleServer.subscriptionsUrl(),
     ).idleTimeoutMillis(
         idleTimeoutMillis = 0
@@ -222,7 +226,7 @@ class SampleServerTest {
       return message
     }
 
-    class Builder: WsProtocol.Builder {
+    class Builder : WsProtocol.Builder {
       override fun build(): WsProtocol {
         return AuthorizationAwareWsProtocol()
       }
@@ -235,9 +239,9 @@ class SampleServerTest {
         .serverUrl(sampleServer.subscriptionsUrl())
         .subscriptionNetworkTransport(
             WebSocketNetworkTransport.Builder()
-                .serverUrl(sampleServer.subscriptionsUrl())
                 .wsProtocolBuilder(AuthorizationAwareWsProtocol.Builder())
-                .reopenWhen {e, _ ->
+                .serverUrl(sampleServer.subscriptionsUrl())
+                .reopenWhen { e, _ ->
                   e is AuthorizationException
                 }
                 .build()

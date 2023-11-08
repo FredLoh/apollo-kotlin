@@ -55,7 +55,7 @@ interface OperationListener {
   fun onRetry(throwable: Throwable)
 }
 
-class SubscribableWebSocket(
+internal class SubscribableWebSocket(
     webSocketEngine: WebSocketEngine,
     url: String,
     headers: List<HttpHeader>,
@@ -104,6 +104,13 @@ class SubscribableWebSocket(
       activeListeners.values
     }
 
+    /**
+     * If there are no listeners, no need to call reopen at all
+     *
+     * Note that there is no concept of "normal" or "error" termination in that case. Whether
+     * the TCP socket times out, the client idle timeout fires or the server closes the connection
+     * it's all the same since there are no listeners.
+     */
     val reopen = if (listeners.isNotEmpty()) {
       reopenWhen.invoke(throwable)
     } else {
