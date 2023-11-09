@@ -28,7 +28,6 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
-
 private data class Item(
     val message: WebSocketMessage? = null,
     val open: Boolean = false,
