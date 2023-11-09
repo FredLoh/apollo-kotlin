@@ -15,8 +15,7 @@ import okio.Buffer
 class AppSyncWsProtocol(
     val authorization: suspend () -> Any? = { null },
 ) : WsProtocol {
-  override val name: String
-    get() = "graphql-ws"
+  override val name = "graphql-ws"
 
   override suspend fun connectionInit(): ClientMessage {
     return mapOf("type" to "connection_init").toClientMessage()
