@@ -3,6 +3,7 @@ package com.apollographql.apollo3.network.websocket
 import com.apollographql.apollo3.api.ApolloRequest
 import com.apollographql.apollo3.api.Operation
 import com.apollographql.apollo3.api.http.HttpHeader
+import com.apollographql.apollo3.exception.ApolloRetryException
 import com.apollographql.apollo3.exception.ApolloWebSocketClosedException
 import com.apollographql.apollo3.exception.DefaultApolloException
 import kotlinx.atomicfu.locks.reentrantLock
@@ -15,56 +16,17 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-
-interface StartedOperation {
-  /**
-   * Sends a message to the server to stop the operation and removes the listener.
-   * No further call to the listener are made
-   */
-  fun stop()
-}
-
-interface OperationListener {
-  /**
-   * A response was received
-   *
-   * [response] is the Kotlin representation of a GraphQL response.
-   *
-   * ```kotlin
-   * mapOf(
-   *   "data" to ...
-   *   "errors" to listOf(...)
-   * )
-   * ```
-   */
-  fun onResponse(response: Any?)
-
-  /**
-   * The operation terminated successfully. No calls to listener will be made
-   */
-  fun onComplete()
-
-  /**
-   * The operation cannot be executed or failed. No calls to listener will be made
-   */
-  fun onError(throwable: Throwable)
-
-  /**
-   * A network error happened and this operation should be restarted
-   */
-  fun onRetry(throwable: Throwable)
-}
-
 /**
- * @param terminated a state that signals that a general error happened and all future WebSocket messages
- * must be ignored. This is to make it robust to [WsProtocol] that send spurious messages.
+ * A [SubscribableWebSocket] is the link between the lower level [WebSocket] and GraphQL
  *
- * [OperationListener] is called directly from the [WebSocketListener.onMessage] thread except for
- * [GeneralErrorServerMessage] that needs to suspend for [reopenWhen].
- * In that state, all websocket messages are ignored
+ * [startOperation] starts a new operation and calls [WebSocketOperationListener] when the server sends messages.
+ *
+ * [SubscribableWebSocket] does not connect to the server until [connect] is called. This allows to start adding
+ * listeners but only trigger them once network becomes available or after an exponential backoff period.
+ *
+ * Once the lower level [WebSocket] is closed the [SubscribableWebSocket] stays in the [State.Disconnected]
+ * until a new [WebSocket] can be connected
  */
-private class ActiveOperationListener(val operationListener: OperationListener, var terminated: Boolean)
-
 internal class SubscribableWebSocket(
     webSocketEngine: WebSocketEngine,
     url: String,
@@ -75,9 +37,10 @@ internal class SubscribableWebSocket(
     private val onDisposed: () -> Unit,
     private val dispatcher: CoroutineDispatcher,
     private val wsProtocol: WsProtocol,
-    private val reopenWhen: suspend (Throwable) -> Boolean,
+    private val reopenWhen: suspend (Throwable, Long) -> Boolean,
     private val pingIntervalMillis: Long,
     private val connectionAcknowledgeTimeoutMillis: Long,
+    private val attempt: Long,
 ) : WebSocketListener {
   // webSocket is thread safe, no need to lock
   private var webSocket: WebSocket = webSocketEngine.newWebSocket(url, headers, this@SubscribableWebSocket)
@@ -122,7 +85,7 @@ internal class SubscribableWebSocket(
      * it's all the same since there are no listeners.
      */
     val reopen = if (listeners.isNotEmpty()) {
-      reopenWhen.invoke(throwable)
+      reopenWhen.invoke(throwable, attempt)
     } else {
       false
     }
@@ -130,11 +93,12 @@ internal class SubscribableWebSocket(
     onDisposed()
 
     listeners.forEach {
-      if (reopen) {
-        it.operationListener.onRetry(throwable)
+      val cause = if (reopen) {
+        ApolloRetryException(attempt, throwable)
       } else {
-        it.operationListener.onError(throwable)
+        throwable
       }
+      it.operationListener.onError(cause)
     }
   }
 
@@ -160,7 +124,7 @@ internal class SubscribableWebSocket(
     }
   }
 
-  private fun listenerFor(id: String): OperationListener? = lock.withLock {
+  private fun listenerFor(id: String): WebSocketOperationListener? = lock.withLock {
     activeListeners.get(id)?.let {
       if (it.terminated) {
         null
@@ -263,7 +227,7 @@ internal class SubscribableWebSocket(
     }
   }
 
-  fun <D : Operation.Data> startOperation(request: ApolloRequest<D>, listener: OperationListener): StartedOperation {
+  fun <D : Operation.Data> startOperation(request: ApolloRequest<D>, listener: WebSocketOperationListener): StartedOperation {
     val added = lock.withLock {
       idleJob?.cancel()
       idleJob = null
@@ -315,6 +279,14 @@ internal class SubscribableWebSocket(
   }
 }
 
+internal interface StartedOperation {
+  /**
+   * Sends a message to the server to stop the operation and removes the listener.
+   * No further call to the listener are made
+   */
+  fun stop()
+}
+
 private enum class State {
   Initial,
   AwaitAck,
@@ -333,3 +305,14 @@ private fun WebSocket.send(clientMessage: ClientMessage) {
     is DataClientMessage -> send(clientMessage.data)
   }
 }
+
+/**
+ * @param terminated a state that signals that a general error happened and all future WebSocket messages
+ * must be ignored. This is to make it robust to [WsProtocol] that send spurious messages.
+ *
+ * [WebSocketOperationListener] is called directly from the [WebSocketListener.onMessage] thread except for
+ * [GeneralErrorServerMessage] that needs to suspend for [reopenWhen].
+ * In that state, all websocket messages are ignored
+ */
+private class ActiveOperationListener(val operationListener: WebSocketOperationListener, var terminated: Boolean)
+

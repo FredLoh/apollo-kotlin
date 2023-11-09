@@ -62,7 +62,7 @@ private fun debug(line: String) {
   }
 }
 
-private val mockServerListener = object : MockServer.Listener {
+internal val mockServerListener = object : MockServer.Listener {
   override fun onRequest(request: MockRequestBase) {
     debug("Client: ${request.method} ${request.path}")
   }
@@ -97,7 +97,7 @@ class WebSocketEngineTest {
       val serverWriter: WebSocketBody,
   )
 
-  private fun test(block: suspend Scope.() -> Unit) = runTest {
+  private fun whenHandshakeDone(block: suspend Scope.() -> Unit) = runTest {
     val mockServer = MockServer.Builder()
         .listener(mockServerListener)
         .build()
@@ -113,15 +113,15 @@ class WebSocketEngineTest {
     clientWriter.connect()
     val serverReader = mockServer.awaitWebSocketRequest()
 
+    clientReader.awaitOpen()
+
     Scope(clientReader, clientWriter, serverReader, serverWriter).block()
 
     mockServer.close()
   }
 
   @Test
-  fun simpleSessionWithClientClose() = test {
-    clientReader.awaitOpen()
-
+  fun simpleSessionWithClientClose() = whenHandshakeDone {
     clientWriter.send("Client Text")
     serverReader.awaitMessage().apply {
       assertIs<TextMessage>(this)
@@ -159,9 +159,7 @@ class WebSocketEngineTest {
 
   @OptIn(ExperimentalCoroutinesApi::class)
   @Test
-  fun serverClose() = test {
-    clientReader.awaitOpen()
-
+  fun serverClose() = whenHandshakeDone {
     serverWriter.enqueueMessage(CloseFrame(1002, "Server Bye"))
 
     val item = clientReader.awaitItem()

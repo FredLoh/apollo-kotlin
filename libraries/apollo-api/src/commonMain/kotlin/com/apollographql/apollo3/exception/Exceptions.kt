@@ -135,7 +135,7 @@ class CacheMissException @ApolloInternal constructor(
 }
 
 /**
- * A HTTP cache miss happened
+ * An HTTP cache miss happened
  */
 class HttpCacheMissException(message: String, cause: Exception? = null) : ApolloException(message = message, cause = cause)
 
@@ -154,3 +154,10 @@ class ApolloCompositeException : ApolloException {
 
 class AutoPersistedQueriesNotSupported : ApolloException(message = "The server does not support auto persisted queries")
 class MissingValueException : ApolloException(message = "The optional doesn't have a value")
+
+/**
+ * An operation should be retried.
+ *
+ * @property attempt the number of times the operation has already been attempted without success
+ */
+class ApolloRetryException(val attempt: Long, cause: Throwable) : ApolloException("The operation should be retried", cause)
