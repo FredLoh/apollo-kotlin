@@ -1,5 +1,6 @@
 package com.apollographql.apollo3.network.websocket
 
+import com.apollographql.apollo3.annotations.ApolloDeprecatedSince
 import com.apollographql.apollo3.annotations.ApolloExperimental
 import com.apollographql.apollo3.api.ApolloRequest
 import com.apollographql.apollo3.api.ApolloResponse
@@ -52,6 +53,8 @@ class WebSocketNetworkTransport private constructor(
   @ApolloExperimental
   val isConnected = isConnectedPrivate.asStateFlow()
 
+  @Deprecated("This was only used for tests and shouldn't have been exposed", level = DeprecationLevel.ERROR)
+  @ApolloDeprecatedSince(ApolloDeprecatedSince.Version.v4_0_0)
   val subscriptionCount = MutableStateFlow(0)
 
   private fun onWebSocketConnected() {
