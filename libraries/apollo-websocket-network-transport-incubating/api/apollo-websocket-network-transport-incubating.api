@@ -84,13 +84,6 @@ public final class com/apollographql/apollo3/network/websocket/OperationErrorSer
 	public final fun getPayload ()Ljava/lang/Object;
 }
 
-public abstract interface class com/apollographql/apollo3/network/websocket/OperationListener {
-	public abstract fun onComplete ()V
-	public abstract fun onError (Ljava/lang/Throwable;)V
-	public abstract fun onResponse (Ljava/lang/Object;)V
-	public abstract fun onRetry (Ljava/lang/Throwable;)V
-}
-
 public final class com/apollographql/apollo3/network/websocket/ParseErrorServerMessage : com/apollographql/apollo3/network/websocket/ServerMessage {
 	public fun <init> (Ljava/lang/String;)V
 	public final fun getErrorMessage ()Ljava/lang/String;
@@ -112,10 +105,6 @@ public final class com/apollographql/apollo3/network/websocket/ResponseServerMes
 }
 
 public abstract interface class com/apollographql/apollo3/network/websocket/ServerMessage {
-}
-
-public abstract interface class com/apollographql/apollo3/network/websocket/StartedOperation {
-	public abstract fun stop ()V
 }
 
 public final class com/apollographql/apollo3/network/websocket/SubscriptionWsProtocol : com/apollographql/apollo3/network/websocket/WsProtocol {
@@ -166,7 +155,7 @@ public abstract interface class com/apollographql/apollo3/network/websocket/WebS
 }
 
 public final class com/apollographql/apollo3/network/websocket/WebSocketNetworkTransport : com/apollographql/apollo3/network/NetworkTransport {
-	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;Ljava/util/List;Lcom/apollographql/apollo3/network/websocket/WebSocketEngine;JLcom/apollographql/apollo3/network/websocket/WsProtocol$Builder;Lkotlin/jvm/functions/Function3;JJLkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;Ljava/util/List;Lcom/apollographql/apollo3/network/websocket/WebSocketEngine;JLcom/apollographql/apollo3/network/websocket/WsProtocol$Builder;Lkotlin/jvm/functions/Function3;JJZLkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public final fun closeConnection (Ljava/lang/Throwable;)V
 	public fun dispose ()V
 	public fun execute (Lcom/apollographql/apollo3/api/ApolloRequest;)Lkotlinx/coroutines/flow/Flow;
@@ -175,8 +164,10 @@ public final class com/apollographql/apollo3/network/websocket/WebSocketNetworkT
 
 public final class com/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder {
 	public fun <init> ()V
+	public final fun addHeader (Ljava/lang/String;Ljava/lang/String;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun build ()Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport;
 	public final fun connectionAcknowledgeTimeoutMillis (J)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
+	public final fun enableReopen (Z)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun headers (Ljava/util/List;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun idleTimeoutMillis (J)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun pingIntervalMillis (J)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
