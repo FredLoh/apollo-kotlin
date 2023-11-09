@@ -3,7 +3,7 @@ plugins {
 }
 
 apolloLibrary(
-    javaModuleName = "com.apollographql.apollo3.runtime",
+    javaModuleName = "com.apollographql.apollo3.network.websocket",
     withLinux = false
 )
 
