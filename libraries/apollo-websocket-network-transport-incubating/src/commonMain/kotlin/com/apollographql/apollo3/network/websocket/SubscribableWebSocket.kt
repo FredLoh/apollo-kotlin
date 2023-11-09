@@ -56,7 +56,7 @@ interface OperationListener {
 }
 
 /**
- * @param terminated a state that signals that a general error happened all future WebSocket messages
+ * @param terminated a state that signals that a general error happened and all future WebSocket messages
  * must be ignored. This is to make it robust to [WsProtocol] that send spurious messages.
  *
  * [OperationListener] is called directly from the [WebSocketListener.onMessage] thread except for
