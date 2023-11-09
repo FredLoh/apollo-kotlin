@@ -4,6 +4,8 @@ import com.apollographql.apollo.sample.server.SampleServer
 import com.apollographql.apollo3.ApolloClient
 import com.apollographql.apollo3.api.ApolloRequest
 import com.apollographql.apollo3.api.Operation
+import com.apollographql.apollo3.api.json.jsonReader
+import com.apollographql.apollo3.api.json.readAny
 import com.apollographql.apollo3.exception.SubscriptionOperationException
 import com.apollographql.apollo3.network.websocket.GeneralErrorServerMessage
 import com.apollographql.apollo3.network.websocket.OperationErrorServerMessage
@@ -22,14 +24,17 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import okio.Buffer
 import org.junit.AfterClass
 import org.junit.BeforeClass
 import org.junit.Test
 import sample.server.CountSubscription
+import sample.server.GetMessagesQuery
 import sample.server.GraphqlAccessErrorSubscription
 import sample.server.OperationErrorSubscription
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class SampleServerTest {
@@ -235,14 +240,17 @@ class SampleServerTest {
 
   @Test
   fun canResumeAfterGraphQLError() {
+    var done = false
     val apolloClient = ApolloClient.Builder()
-        .serverUrl(sampleServer.subscriptionsUrl())
+        .serverUrl(sampleServer.graphqlUrl())
         .subscriptionNetworkTransport(
             WebSocketNetworkTransport.Builder()
                 .wsProtocolBuilder(AuthorizationAwareWsProtocol.Builder())
                 .serverUrl(sampleServer.subscriptionsUrl())
                 .reopenWhen { e, _ ->
-                  e is AuthorizationException
+                  (!done && e is AuthorizationException).also {
+                    done = true
+                  }
                 }
                 .build()
         )
@@ -257,6 +265,25 @@ class SampleServerTest {
           .take(2)
           .toList()
       assertEquals(listOf(0, 0), list)
+
+      val messages = apolloClient.query(GetMessagesQuery())
+          .execute()
+          .dataOrThrow()
+          .receivedMessages
+          .map {
+            Buffer().writeUtf8(it).jsonReader().readAny() as Map<String, Any?>
+          }.filter {
+            it["type"] == "start"
+          }
+
+      assertEquals(2, messages.size)
+      val id1 = messages[0]["id"]
+      val id2 = messages[1]["id"]
+      assertNotNull(id1)
+      assertNotNull(id2)
+      assertTrue(id1 != id2)
+
     }
   }
 }
+

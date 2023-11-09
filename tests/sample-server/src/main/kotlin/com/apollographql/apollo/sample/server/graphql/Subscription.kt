@@ -2,7 +2,6 @@ package com.apollographql.apollo.sample.server.graphql
 
 import com.apollographql.apollo.sample.server.CurrentWebSocket
 import com.apollographql.apollo3.annotations.ApolloObject
-import com.apollographql.apollo3.annotations.GraphQLName
 import com.apollographql.apollo3.api.ExecutionContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -10,8 +9,7 @@ import kotlinx.coroutines.flow.flow
 import org.http4k.websocket.WsStatus
 
 @ApolloObject
-@GraphQLName(name = "Subscription")
-class SubscriptionRoot {
+class Subscription {
   fun count(to: Int, delayMillis: Int): Flow<Int> = flow {
     repeat(to) {
       emit(it)
