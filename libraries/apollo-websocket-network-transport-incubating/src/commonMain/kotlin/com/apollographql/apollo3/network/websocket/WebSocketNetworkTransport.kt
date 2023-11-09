@@ -42,13 +42,13 @@ class WebSocketNetworkTransport private constructor(
 
   private val lock = reentrantLock()
   /**
-   * [currentSocket] is set to null as soon as it is disconnected and moved to [previousSocket]
+   * [currentSocket] is set to null as soon as it is disconnected and moved to [readyToConnect]
    * while [reopenWhen] is called to decide if the subscriptions should be retried or not.
    * During that time, any new socket is left in a non-started state.
-   * When [previousSocket] is disposed, it is set to null and at that time [currentSocket] can be started
+   * When [readyToConnect] is disposed, it is set to null and at that time [currentSocket] can be started
    */
   private var currentSocket: SubscribableWebSocket? = null
-  private var previousSocket: SubscribableWebSocket? = null
+  private var readyToConnect: Boolean = true
 
   @ApolloExperimental
   val isConnected = isConnectedPrivate.asStateFlow()
@@ -66,15 +66,15 @@ class WebSocketNetworkTransport private constructor(
     isConnectedPrivate.value = false
 
     lock.withLock {
-      previousSocket = currentSocket
+      readyToConnect = false
       currentSocket = null
     }
   }
 
   private fun onWebSocketDisposed() {
     lock.withLock {
-      if (previousSocket != null) {
-        previousSocket = null
+      if (!readyToConnect) {
+        readyToConnect = true
         if (currentSocket != null) {
           currentSocket!!.connect()
         }
@@ -120,7 +120,7 @@ class WebSocketNetworkTransport private constructor(
               connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis
           )
         }
-        if (previousSocket == null) {
+        if (readyToConnect) {
           currentSocket!!.connect()
         }
         currentSocket!!.startOperation(newRequest, operationListener)
