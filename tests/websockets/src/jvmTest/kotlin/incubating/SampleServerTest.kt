@@ -25,7 +25,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.Buffer
+import org.junit.After
 import org.junit.AfterClass
+import org.junit.Before
 import org.junit.BeforeClass
 import org.junit.Test
 import sample.server.CountSubscription
@@ -38,20 +40,16 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class SampleServerTest {
-  companion object {
-    private lateinit var sampleServer: SampleServer
+  private lateinit var sampleServer: SampleServer
 
-    @BeforeClass
-    @JvmStatic
-    fun beforeClass() {
-      sampleServer = SampleServer()
-    }
+  @Before
+  fun beforeClass() {
+    sampleServer = SampleServer()
+  }
 
-    @AfterClass
-    @JvmStatic
-    fun afterClass() {
-      sampleServer.close()
-    }
+  @After
+  fun afterClass() {
+    sampleServer.close()
   }
 
   private val networkTransportBuilder = WebSocketNetworkTransport.Builder()
