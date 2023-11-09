@@ -16,9 +16,9 @@ class SubscriptionWsProtocol(
   override suspend fun connectionInit(): ClientMessage {
     val map = mutableMapOf<String, Any?>()
     map.put("type", "connection_init")
-    val paramas = connectionParams()
-    if (paramas != null) {
-      map.put("payload", paramas)
+    val params = connectionParams()
+    if (params != null) {
+      map.put("payload", params)
     }
 
     return map.toClientMessage()
