@@ -33,6 +33,8 @@ internal class SubscribableWebSocket(
     private val pingIntervalMillis: Long,
     private val connectionAcknowledgeTimeoutMillis: Long,
 ) : WebSocketListener {
+  private var throwable: Throwable? = null
+
   // webSocket is thread safe, no need to lock
   private var webSocket: WebSocket = webSocketEngine.newWebSocket(url, headers, this@SubscribableWebSocket)
   private val scope = CoroutineScope(dispatcher + SupervisorJob())
@@ -56,6 +58,7 @@ internal class SubscribableWebSocket(
       pingJob = null
       if (state != State.Disconnected) {
         state = State.Disconnected
+        this.throwable = throwable
         activeListeners.values.forEach {
           it.terminated = true
         }
@@ -182,25 +185,31 @@ internal class SubscribableWebSocket(
     disconnect(ApolloWebSocketClosedException(code ?: CLOSE_NORMAL, reason))
   }
 
+  enum class AddResult {
+    Added,
+    AlreadyExists,
+    AlreadyClosed
+  }
   fun <D : Operation.Data> startOperation(request: ApolloRequest<D>, listener: WebSocketOperationListener) {
     val added = lock.withLock {
       idleJob?.cancel()
       idleJob = null
 
-      if (activeListeners.containsKey(request.requestUuid.toString())) {
-        false
+      if (state == State.Disconnected) {
+        AddResult.AlreadyClosed
+      } else if (activeListeners.containsKey(request.requestUuid.toString())){
+        AddResult.AlreadyExists
       } else {
         activeListeners.put(request.requestUuid.toString(), ActiveOperationListener(listener, false))
-        true
+        AddResult.Added
       }
     }
 
-    if (!added) {
-      listener.onError(DefaultApolloException("There is already a subscription with that id"))
-      return
+    when (added) {
+      AddResult.AlreadyClosed -> listener.onError(throwable!!)
+      AddResult.AlreadyExists -> listener.onError(DefaultApolloException("There is already a subscription with that id"))
+      AddResult.Added -> scope.launch { webSocket.send(wsProtocol.operationStart(request)) }
     }
-
-    scope.launch { webSocket.send(wsProtocol.operationStart(request)) }
   }
 
   fun <D : Operation.Data> stopOperation(request: ApolloRequest<D>, listener: WebSocketOperationListener) {
