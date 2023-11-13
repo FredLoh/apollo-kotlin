@@ -17,21 +17,22 @@ internal class JsWebSocket(
     private val headers: List<HttpHeader>,
     private val listener: WebSocketListener,
 ) : WebSocket {
-  private lateinit var platformWebSocket: PlatformWebSocket
+  private var platformWebSocket: PlatformWebSocket? = null
   private var disposed = false
+  private var connected = false
   private val actualUrl = when {
     url.startsWith("http://") -> "ws://${url.substring(7)}"
     url.startsWith("https://") -> "wss://${url.substring(8)}"
     else -> url
   }
   override fun connect() {
-
-    platformWebSocket = createWebSocket(actualUrl, headers)
-    platformWebSocket.onopen = {
+    connected = true
+    platformWebSocket = createWebSocket(actualUrl, headers, listener)
+    platformWebSocket?.onopen = {
       listener.onOpen()
     }
 
-    platformWebSocket.onmessage = {
+    platformWebSocket?.onmessage = {
       val data2: dynamic = it.data
 
       when {
@@ -44,21 +45,21 @@ internal class JsWebSocket(
           if (!disposed) {
             disposed = true
             listener.onError(DefaultApolloException("The JS WebSocket implementation only support text messages (got $d)"))
-            platformWebSocket.close(CLOSE_GOING_AWAY.toShort(), "Unsupported message received")
+            platformWebSocket?.close(CLOSE_GOING_AWAY.toShort(), "Unsupported message received")
           }
           Unit
         }
       }
     }
 
-    platformWebSocket.onerror = {
+    platformWebSocket?.onerror = {
       if (!disposed) {
         disposed = true
         listener.onError(DefaultApolloException("Error while reading websocket"))
       }
     }
 
-    platformWebSocket.onclose = {
+    platformWebSocket?.onclose = {
       val event: dynamic = it
       if (!disposed) {
         disposed = true
@@ -72,42 +73,45 @@ internal class JsWebSocket(
   }
 
   override fun send(data: ByteArray) {
-    check(::platformWebSocket.isInitialized) {
+    check(connected) {
       "You must call connect() before send()"
     }
-
-    if (platformWebSocket.bufferedAmount.toDouble() > MAX_BUFFERED) {
-      if (!disposed) {
-        disposed = true
-        listener.onError(DefaultApolloException("Too much data queued"))
+    platformWebSocket?.let {
+      if (it.bufferedAmount.toDouble() > MAX_BUFFERED) {
+        if (!disposed) {
+          disposed = true
+          listener.onError(DefaultApolloException("Too much data queued"))
+        }
       }
+      it.send(Uint8Array(data.toTypedArray()))
     }
-    platformWebSocket.send(Uint8Array(data.toTypedArray()))
   }
 
   override fun send(text: String) {
-    check(::platformWebSocket.isInitialized) {
+    check(connected) {
       "You must call connect() before send()"
     }
 
-    if (platformWebSocket.bufferedAmount.toDouble() > MAX_BUFFERED) {
-      if (!disposed) {
-        disposed = true
-        listener.onError(DefaultApolloException("Too much data queued"))
+    platformWebSocket?.let {
+      if (it.bufferedAmount.toDouble() > MAX_BUFFERED) {
+        if (!disposed) {
+          disposed = true
+          listener.onError(DefaultApolloException("Too much data queued"))
+        }
       }
-    }
 
-    platformWebSocket.send(text)
+      it.send(text)
+    }
   }
 
   override fun close(code: Int, reason: String) {
-    check(::platformWebSocket.isInitialized) {
+    check(connected) {
       "You must call connect() before close()"
     }
 
     if (!disposed) {
       disposed = true
-      platformWebSocket.close(code.toShort(), reason)
+      platformWebSocket?.close(code.toShort(), reason)
     }
   }
 }
@@ -149,7 +153,7 @@ fun isNode(): Boolean {
 // Adding "_capturingHack" to reduce chances of JS IR backend to rename variable,
 // so it can be accessed inside js("") function
 @Suppress("UNUSED_PARAMETER", "UnsafeCastFromDynamic", "UNUSED_VARIABLE", "LocalVariableName")
-private fun createWebSocket(urlString_capturingHack: String, headers: List<HttpHeader>): PlatformWebSocket {
+private fun createWebSocket(urlString_capturingHack: String, headers: List<HttpHeader>, listener: WebSocketListener): PlatformWebSocket? {
   val (protocolHeaders, otherHeaders) = headers.partition { it.name.equals("sec-websocket-protocol", true) }
   val protocols = protocolHeaders.mapNotNull { it.value }.toTypedArray()
   return if (isNode()) {
@@ -160,10 +164,12 @@ private fun createWebSocket(urlString_capturingHack: String, headers: List<HttpH
     }
     js("new ws_capturingHack(urlString_capturingHack, protocols, { headers: headers_capturingHack })")
   } else {
-    check(otherHeaders.isEmpty()) {
-      "Apollo: the WebSocket browser API doesn't allow passing headers. Use connectionPayload or other mechanisms."
+    if(otherHeaders.isNotEmpty()) {
+      listener.onError(DefaultApolloException("Apollo: the WebSocket browser API doesn't allow passing headers. Use connectionPayload or other mechanisms."))
+      null
+    } else {
+      js("new WebSocket(urlString_capturingHack, protocols)")
     }
-    js("new WebSocket(urlString_capturingHack, protocols)")
   }
 }
 
