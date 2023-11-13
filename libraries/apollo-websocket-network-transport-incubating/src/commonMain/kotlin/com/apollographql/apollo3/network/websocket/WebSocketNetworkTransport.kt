@@ -64,8 +64,6 @@ class WebSocketNetworkTransport private constructor(
   private class ConnectedEvent(): Event
   private class CloseEvent(val throwable: Throwable): Event
 
-  private var readyToConnect: Boolean = true
-
   private val _isConnected = MutableStateFlow(false)
   @ApolloExperimental
   val isConnected = _isConnected.asStateFlow()
@@ -221,7 +219,7 @@ class WebSocketNetworkTransport private constructor(
      * - "http://" (same as "ws://")
      * - "https://" (same as "wss://")
      */
-    fun serverUrl(serverUrl: suspend () -> String) = apply {
+    fun serverUrl(serverUrl: (suspend () -> String)?) = apply {
       this.serverUrl = serverUrl
     }
 
@@ -280,7 +278,7 @@ class WebSocketNetworkTransport private constructor(
      * @see [closeConnection]
      * @see [enableReopen]
      */
-    fun reopenWhen(reopenWhen: suspend (Throwable, attempt: Long) -> Boolean) = apply {
+    fun reopenWhen(reopenWhen: (suspend (Throwable, attempt: Long) -> Boolean)?) = apply {
       this.reopenWhen = reopenWhen
     }
 
@@ -304,9 +302,12 @@ class WebSocketNetworkTransport private constructor(
      * @see [AppSyncWsProtocol]
      * @see [GraphQLWsProtocol]
      */
-    fun wsProtocolBuilder(wsProtocolFactory: WsProtocol.Factory) = apply {
+    fun wsProtocolFactory(wsProtocolFactory: WsProtocol.Factory) = apply {
       this.wsProtocolFactory = wsProtocolFactory
     }
+
+    @Deprecated("Use wsProtocolFactory isntead", ReplaceWith("wsProtocolFactory"), level = DeprecationLevel.ERROR)
+    fun protocol(wsProtocolFactory: WsProtocol.Factory) = wsProtocolFactory(wsProtocolFactory)
 
     /**
      * The interval in milliseconds between two client pings or -1 to disable client pings.

@@ -51,7 +51,7 @@ class SampleServerTest {
   }
 
   private val networkTransportBuilder = WebSocketNetworkTransport.Builder()
-      .wsProtocolBuilder(SubscriptionWsProtocol.Factory())
+      .wsProtocolFactory(SubscriptionWsProtocol.Factory())
 
 
   @Test
@@ -245,7 +245,7 @@ class SampleServerTest {
         .serverUrl(sampleServer.graphqlUrl())
         .subscriptionNetworkTransport(
             WebSocketNetworkTransport.Builder()
-                .wsProtocolBuilder(AuthorizationAwareWsProtocol.Factory())
+                .wsProtocolFactory(AuthorizationAwareWsProtocol.Factory())
                 .serverUrl(sampleServer.subscriptionsUrl())
                 .reopenWhen { e, _ ->
                   (!done && e is AuthorizationException).also {

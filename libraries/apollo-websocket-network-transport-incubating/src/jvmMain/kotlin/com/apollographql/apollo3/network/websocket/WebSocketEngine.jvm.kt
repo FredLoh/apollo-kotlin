@@ -12,9 +12,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import okhttp3.WebSocket as PlatformWebSocket
 import okhttp3.WebSocketListener as PlatformWebSocketListener
 
-class JvmWebSocketEngine(private val okHttpClientBuilder: OkHttpClient.Builder) : WebSocketEngine {
+class JvmWebSocketEngine(private val okHttpClient: OkHttpClient) : WebSocketEngine {
   override fun newWebSocket(url: String, headers: List<HttpHeader>, listener: WebSocketListener): WebSocket {
-    return JvmWebSocket(okHttpClientBuilder.build(), url, headers, listener)
+    return JvmWebSocket(okHttpClient, url, headers, listener)
   }
 }
 
@@ -104,4 +104,4 @@ internal class JvmWebSocket(
 }
 
 
-actual fun WebSocketEngine(): WebSocketEngine = JvmWebSocketEngine(defaultOkHttpClientBuilder)
+actual fun WebSocketEngine(): WebSocketEngine = JvmWebSocketEngine(defaultOkHttpClientBuilder.build())
