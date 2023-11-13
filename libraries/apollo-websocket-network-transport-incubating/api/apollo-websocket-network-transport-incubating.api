@@ -74,7 +74,7 @@ public final class com/apollographql/apollo3/network/websocket/GraphQLWsProtocol
 }
 
 public final class com/apollographql/apollo3/network/websocket/JvmWebSocketEngine : com/apollographql/apollo3/network/websocket/WebSocketEngine {
-	public fun <init> (Lokhttp3/OkHttpClient$Builder;)V
+	public fun <init> (Lokhttp3/OkHttpClient;)V
 	public fun newWebSocket (Ljava/lang/String;Ljava/util/List;Lcom/apollographql/apollo3/network/websocket/WebSocketListener;)Lcom/apollographql/apollo3/network/websocket/WebSocket;
 }
 
@@ -108,7 +108,7 @@ public abstract interface class com/apollographql/apollo3/network/websocket/Serv
 }
 
 public final class com/apollographql/apollo3/network/websocket/SubscriptionWsProtocol : com/apollographql/apollo3/network/websocket/WsProtocol {
-	public fun <init> (Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun connectionInit (Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
 	public final fun getConnectionParams ()Lkotlin/jvm/functions/Function1;
 	public fun getName ()Ljava/lang/String;
@@ -121,8 +121,13 @@ public final class com/apollographql/apollo3/network/websocket/SubscriptionWsPro
 
 public final class com/apollographql/apollo3/network/websocket/SubscriptionWsProtocol$Factory : com/apollographql/apollo3/network/websocket/WsProtocol$Factory {
 	public fun <init> ()V
+	public fun <init> (J)V
+	public fun <init> (JLkotlin/jvm/functions/Function1;)V
+	public fun <init> (JLkotlin/jvm/functions/Function1;Lcom/apollographql/apollo3/network/ws/WsFrameType;)V
+	public synthetic fun <init> (JLkotlin/jvm/functions/Function1;Lcom/apollographql/apollo3/network/ws/WsFrameType;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public fun <init> (Lkotlin/jvm/functions/Function1;)V
+	public synthetic fun <init> (Lkotlin/jvm/functions/Function1;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
 	public fun build ()Lcom/apollographql/apollo3/network/websocket/WsProtocol;
-	public final fun connectionParams (Lkotlin/jvm/functions/Function1;)Lcom/apollographql/apollo3/network/websocket/SubscriptionWsProtocol$Factory;
 }
 
 public final class com/apollographql/apollo3/network/websocket/TextClientMessage : com/apollographql/apollo3/network/websocket/ClientMessage {
@@ -173,11 +178,12 @@ public final class com/apollographql/apollo3/network/websocket/WebSocketNetworkT
 	public final fun headers (Ljava/util/List;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun idleTimeoutMillis (J)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun pingIntervalMillis (J)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
+	public final fun protocol (Lcom/apollographql/apollo3/network/websocket/WsProtocol$Factory;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun reopenWhen (Lkotlin/jvm/functions/Function3;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun serverUrl (Ljava/lang/String;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun serverUrl (Lkotlin/jvm/functions/Function1;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 	public final fun webSocketEngine (Lcom/apollographql/apollo3/network/websocket/WebSocketEngine;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
-	public final fun wsProtocolBuilder (Lcom/apollographql/apollo3/network/websocket/WsProtocol$Factory;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
+	public final fun wsProtocolFactory (Lcom/apollographql/apollo3/network/websocket/WsProtocol$Factory;)Lcom/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Builder;
 }
 
 public abstract interface class com/apollographql/apollo3/network/websocket/WebSocketNetworkTransport$Event {

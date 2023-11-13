@@ -1,13 +1,16 @@
 package com.apollographql.apollo3.network.websocket
 
+import com.apollographql.apollo3.annotations.ApolloDeprecatedSince
 import com.apollographql.apollo3.api.ApolloRequest
 import com.apollographql.apollo3.api.Operation
 import com.apollographql.apollo3.api.http.DefaultHttpRequestComposer
 import com.apollographql.apollo3.api.json.jsonReader
 import com.apollographql.apollo3.api.json.readAny
+import com.apollographql.apollo3.network.ws.WsFrameType
 import okio.Buffer
+import kotlin.jvm.JvmOverloads
 
-class SubscriptionWsProtocol(
+class SubscriptionWsProtocol private constructor(
     val connectionParams: suspend () -> Any?,
 ) : WsProtocol {
   override val name: String
@@ -81,14 +84,28 @@ class SubscriptionWsProtocol(
     }
   }
 
-  class Factory : WsProtocol.Factory {
-    private var connectionParams: (suspend () -> Any?)? = null
-    fun connectionParams(connectionParams: suspend () -> Any?) = apply {
-      this.connectionParams = connectionParams
-    }
+  class Factory
+  @Deprecated("Use WsProtocol.Factory(connectionPayload) instead")
+  @ApolloDeprecatedSince(ApolloDeprecatedSince.Version.v4_0_0)
+  @JvmOverloads constructor(
+      private val connectionAcknowledgeTimeoutMs: Long = 10_000,
+      private var connectionPayload: suspend () -> Any? = { null },
+      private val frameType: WsFrameType = WsFrameType.Text,
+  ) : WsProtocol.Factory {
+
+    @Suppress("DEPRECATION")
+    constructor(connectionPayload: suspend () -> Any? = { null }): this(connectionAcknowledgeTimeoutMs = 10_000, connectionPayload = connectionPayload)
 
     override fun build(): WsProtocol {
-      return SubscriptionWsProtocol(connectionParams ?: { null })
+      check(frameType == WsFrameType.Text) {
+        "Binary websocket frames are not supported"
+      }
+      check(connectionAcknowledgeTimeoutMs == 10_000L) {
+        "Changing connectionAcknowledgeTimeoutMs on WsProtocol is deprecated, use WebSocketNetworkTransport.connectionAcknowledgeTimeoutMillis instead"
+      }
+      return SubscriptionWsProtocol(
+          connectionPayload
+      )
     }
   }
 }

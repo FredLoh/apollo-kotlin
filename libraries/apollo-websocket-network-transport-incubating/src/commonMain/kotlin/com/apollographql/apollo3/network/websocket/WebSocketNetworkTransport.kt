@@ -306,7 +306,8 @@ class WebSocketNetworkTransport private constructor(
       this.wsProtocolFactory = wsProtocolFactory
     }
 
-    @Deprecated("Use wsProtocolFactory isntead", ReplaceWith("wsProtocolFactory"), level = DeprecationLevel.ERROR)
+    @Deprecated("Use wsProtocolFactory instead", ReplaceWith("wsProtocolFactory"), level = DeprecationLevel.ERROR)
+    @ApolloDeprecatedSince(ApolloDeprecatedSince.Version.v4_0_0)
     fun protocol(wsProtocolFactory: WsProtocol.Factory) = wsProtocolFactory(wsProtocolFactory)
 
     /**
