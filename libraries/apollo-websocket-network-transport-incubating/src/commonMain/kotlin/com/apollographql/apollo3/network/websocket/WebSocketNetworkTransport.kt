@@ -27,7 +27,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.retry
+import kotlinx.coroutines.flow.retryWhen
 
 /**
  * A [NetworkTransport] that uses WebSockets to execute GraphQL operations. Most of the time, it is used
@@ -158,7 +158,12 @@ class WebSocketNetworkTransport private constructor(
       if (it.exception is ApolloRetryException) {
         throw it.exception!!
       }
-    }.retry()
+    }.retryWhen { cause, _ ->
+      /**
+       * Only retry on [ApolloRetryException], we want to fail in the other programming error cases
+       */
+      cause is ApolloRetryException
+    }
   }
 
   override fun dispose() {
