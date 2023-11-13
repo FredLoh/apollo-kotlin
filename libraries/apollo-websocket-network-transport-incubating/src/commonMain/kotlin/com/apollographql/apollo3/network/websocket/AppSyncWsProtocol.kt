@@ -132,7 +132,7 @@ class AppSyncWsProtocol(
     }
   }
 
-  class Builder : WsProtocol.Builder {
+  class Factory : WsProtocol.Factory {
     private var authorization: (suspend () -> Any?)? = null
     fun authorization(authorization: suspend () -> Any?) = apply {
       this.authorization = authorization

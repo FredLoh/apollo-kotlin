@@ -44,7 +44,7 @@ class WebSocketNetworkTransport private constructor(
     private val headers: List<HttpHeader>,
     private val webSocketEngine: WebSocketEngine,
     private val idleTimeoutMillis: Long,
-    private val wsProtocolBuilder: WsProtocol.Builder,
+    private val wsProtocolFactory: WsProtocol.Factory,
     private val reopenWhen: (suspend (Throwable, attempt: Long) -> Boolean),
     private val pingIntervalMillis: Long,
     private val connectionAcknowledgeTimeoutMillis: Long,
@@ -136,7 +136,7 @@ class WebSocketNetworkTransport private constructor(
               onDisconnected = ::onWebSocketDisconnected,
               onDisposed = ::onWebSocketDisposed,
               dispatcher = Dispatchers.Default,
-              wsProtocol = wsProtocolBuilder.build(),
+              wsProtocol = wsProtocolFactory.build(),
               reopenWhen = reopenWhen,
               pingIntervalMillis = pingIntervalMillis,
               connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis,
@@ -184,7 +184,7 @@ class WebSocketNetworkTransport private constructor(
     private var webSocketEngine: WebSocketEngine? = null
     private var idleTimeoutMillis: Long? = null
     private var reopenWhen: (suspend (Throwable, attempt: Long) -> Boolean)? = null
-    private var wsProtocolBuilder: WsProtocol.Builder? = null
+    private var wsProtocolFactory: WsProtocol.Factory? = null
     private var pingIntervalMillis: Long? = null
     private var connectionAcknowledgeTimeoutMillis: Long? = null
     private var enableReopen = true
@@ -273,16 +273,16 @@ class WebSocketNetworkTransport private constructor(
     }
 
     /**
-     * The [WsProtocol.Builder] to use for this [WebSocketNetworkTransport]
+     * The [WsProtocol.Factory] to use for this [WebSocketNetworkTransport]
      *
-     * Default: [GraphQLWsProtocol.Builder]
+     * Default: [GraphQLWsProtocol.Factory]
      *
      * @see [SubscriptionWsProtocol]
      * @see [AppSyncWsProtocol]
      * @see [GraphQLWsProtocol]
      */
-    fun wsProtocolBuilder(wsProtocolBuilder: WsProtocol.Builder) = apply {
-      this.wsProtocolBuilder = wsProtocolBuilder
+    fun wsProtocolBuilder(wsProtocolFactory: WsProtocol.Factory) = apply {
+      this.wsProtocolFactory = wsProtocolFactory
     }
 
     /**
@@ -313,7 +313,7 @@ class WebSocketNetworkTransport private constructor(
         webSocketEngine = webSocketEngine ?: WebSocketEngine(),
         idleTimeoutMillis = idleTimeoutMillis ?: 60_000,
         reopenWhen = reopenWhen ?: { _, _ -> false },
-        wsProtocolBuilder = wsProtocolBuilder ?: GraphQLWsProtocol.Builder(),
+        wsProtocolFactory = wsProtocolFactory ?: GraphQLWsProtocol.Factory(),
         pingIntervalMillis = pingIntervalMillis ?: -1L,
         connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis ?: 10_000L,
         enableReopen = enableReopen

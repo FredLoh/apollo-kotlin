@@ -81,7 +81,7 @@ class SubscriptionWsProtocol(
     }
   }
 
-  class Builder : WsProtocol.Builder {
+  class Factory : WsProtocol.Factory {
     private var connectionParams: (suspend () -> Any?)? = null
     fun connectionParams(connectionParams: suspend () -> Any?) = apply {
       this.connectionParams = connectionParams

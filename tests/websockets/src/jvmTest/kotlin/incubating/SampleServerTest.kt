@@ -26,9 +26,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import okio.Buffer
 import org.junit.After
-import org.junit.AfterClass
 import org.junit.Before
-import org.junit.BeforeClass
 import org.junit.Test
 import sample.server.CountSubscription
 import sample.server.GetMessagesQuery
@@ -53,7 +51,7 @@ class SampleServerTest {
   }
 
   private val networkTransportBuilder = WebSocketNetworkTransport.Builder()
-      .wsProtocolBuilder(SubscriptionWsProtocol.Builder())
+      .wsProtocolBuilder(SubscriptionWsProtocol.Factory())
 
 
   @Test
@@ -229,7 +227,7 @@ class SampleServerTest {
       return message
     }
 
-    class Builder : WsProtocol.Builder {
+    class Factory : WsProtocol.Factory {
       override fun build(): WsProtocol {
         return AuthorizationAwareWsProtocol()
       }
@@ -243,7 +241,7 @@ class SampleServerTest {
         .serverUrl(sampleServer.graphqlUrl())
         .subscriptionNetworkTransport(
             WebSocketNetworkTransport.Builder()
-                .wsProtocolBuilder(AuthorizationAwareWsProtocol.Builder())
+                .wsProtocolBuilder(AuthorizationAwareWsProtocol.Factory())
                 .serverUrl(sampleServer.subscriptionsUrl())
                 .reopenWhen { e, _ ->
                   (!done && e is AuthorizationException).also {

@@ -14,7 +14,7 @@ interface WsProtocol {
 
   fun parseServerMessage(text: String): ServerMessage
 
-  interface Builder {
+  interface Factory {
     fun build(): WsProtocol
   }
 }
