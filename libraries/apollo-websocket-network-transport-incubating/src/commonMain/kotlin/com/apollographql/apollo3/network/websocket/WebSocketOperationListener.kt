@@ -16,15 +16,14 @@ internal interface WebSocketOperationListener {
   fun onResponse(response: Any?)
 
   /**
-   * The operation terminated successfully. No calls to listener will be made
+   * The operation terminated successfully. No future calls to this listener will be made
    */
   fun onComplete()
 
   /**
-   * The operation cannot be executed or failed. No calls to listener will be made.
+   * The operation cannot be executed or failed. No future calls to this listener will be made.
    *
-   * If [throwable] is an instance of [com.apollographql.apollo3.exception.ApolloRetryException],
-   * the user [WebSocketNetworkTransport.reopenWhen] returned true
+   * This may happen for an example if there are validation errors
    */
   fun onError(throwable: Throwable)
 }

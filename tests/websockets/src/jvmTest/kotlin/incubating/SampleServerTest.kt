@@ -114,7 +114,9 @@ class SampleServerTest {
         .build()
 
     runBlocking {
-      apolloClient.subscription(CountSubscription(50, 1000)).toFlow().first()
+      withTimeout(500) {
+        apolloClient.subscription(CountSubscription(50, 1000)).toFlow().first()
+      }
 
       assertTrue(transport.isConnected.value)
       delay(500)
@@ -123,7 +125,9 @@ class SampleServerTest {
       }
 
       delay(1500)
-      val number = apolloClient.subscription(CountSubscription(50, 0)).toFlow().drop(3).first().data?.count
+      val number = withTimeout(500) {
+        apolloClient.subscription(CountSubscription(50, 0)).toFlow().drop(3).first().data?.count
+      }
       assertEquals(3, number)
     }
   }

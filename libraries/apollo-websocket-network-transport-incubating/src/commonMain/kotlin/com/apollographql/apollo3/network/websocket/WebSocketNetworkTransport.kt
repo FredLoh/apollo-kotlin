@@ -15,9 +15,10 @@ import com.apollographql.apollo3.exception.DefaultApolloException
 import com.apollographql.apollo3.internal.DeferredJsonMerger
 import com.apollographql.apollo3.network.NetworkTransport
 import com.benasher44.uuid.uuid4
-import kotlinx.atomicfu.locks.reentrantLock
-import kotlinx.atomicfu.locks.withLock
+import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ProducerScope
 import kotlinx.coroutines.channels.awaitClose
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.retryWhen
+import kotlinx.coroutines.launch
 
 /**
  * A [NetworkTransport] that uses WebSockets to execute GraphQL operations. Most of the time, it is used
@@ -51,20 +53,20 @@ class WebSocketNetworkTransport private constructor(
     private val enableReopen: Boolean,
 ) : NetworkTransport {
 
-  private val _isConnected = MutableStateFlow(false)
-  private var attempt = 1L
+  private val running = atomic(false)
+  private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+  private val webSocketEvents = Channel<Event>(Channel.UNLIMITED)
 
-  private val lock = reentrantLock()
+  sealed interface Event
+  private class StartEvent<D: Operation.Data>(val request: ApolloRequest<D>, val listener: WebSocketOperationListener): Event
+  private class StopEvent<D: Operation.Data>(val request: ApolloRequest<D>, val listener: WebSocketOperationListener): Event
+  private class DisconnectEvent(val throwable: Throwable, val listeners: List<WebSocketOperationListener>): Event
+  private class ConnectedEvent(): Event
+  private class CloseEvent(val throwable: Throwable): Event
 
-  /**
-   * [currentSocket] is set to null as soon as it is disconnected and moved to [readyToConnect]
-   * while [reopenWhen] is called to decide if the subscriptions should be retried or not.
-   * During that time, any new socket is left in a non-started state.
-   * When [readyToConnect] is disposed, it is set to null and at that time [currentSocket] can be started
-   */
-  private var currentSocket: SubscribableWebSocket? = null
   private var readyToConnect: Boolean = true
 
+  private val _isConnected = MutableStateFlow(false)
   @ApolloExperimental
   val isConnected = _isConnected.asStateFlow()
 
@@ -74,27 +76,61 @@ class WebSocketNetworkTransport private constructor(
 
   private fun onWebSocketConnected() {
     _isConnected.value = true
-    attempt = 1
+    webSocketEvents.trySend(ConnectedEvent())
   }
 
-  private fun onWebSocketDisconnected() {
+  private fun onWebSocketDisconnected(throwable: Throwable, listeners: List<WebSocketOperationListener>) {
     _isConnected.value = false
-
-    lock.withLock {
-      /**
-       * We can't connect until reopenWhen finishes and [onWebSocketDisposed] is called
-       */
-      readyToConnect = false
-      currentSocket = null
-    }
+    webSocketEvents.trySend(DisconnectEvent(throwable, listeners))
   }
 
-  private fun onWebSocketDisposed() {
-    lock.withLock {
-      if (!readyToConnect) {
-        readyToConnect = true
-        if (currentSocket != null) {
-          currentSocket!!.connect()
+  private suspend fun newWebSocket(): SubscribableWebSocket {
+    return SubscribableWebSocket(
+        webSocketEngine = webSocketEngine,
+        url = serverUrl(),
+        headers = headers,
+        idleTimeoutMillis = idleTimeoutMillis,
+        onConnected = ::onWebSocketConnected,
+        onDisconnected = ::onWebSocketDisconnected,
+        dispatcher = Dispatchers.Default,
+        wsProtocol = wsProtocolFactory.build(),
+        pingIntervalMillis = pingIntervalMillis,
+        connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis,
+    )
+  }
+
+  var attempt = 1L
+
+  private suspend fun CoroutineScope.socketLoop() {
+    val socket: SubscribableWebSocket = newWebSocket()
+
+    while (true) {
+      when(val event = webSocketEvents.receive()) {
+        is DisconnectEvent -> {
+          val cause = if (reopenWhen(event.throwable, attempt)) {
+            ApolloRetryException(attempt, event.throwable)
+          } else {
+              event.throwable
+          }
+
+          event.listeners.forEach {
+            it.onError(throwable = cause)
+          }
+          attempt++
+          running.value = false
+          break
+        }
+        is ConnectedEvent -> {
+          attempt = 1
+        }
+        is StartEvent<*> -> {
+          socket.startOperation(event.request, event.listener)
+        }
+        is StopEvent<*> -> {
+          socket.stopOperation(event.request, event.listener)
+        }
+        is CloseEvent -> {
+          socket.closeConnection(event.throwable)
         }
       }
     }
@@ -116,7 +152,7 @@ class WebSocketNetworkTransport private constructor(
 
     var renewUuid = false
 
-    val flow = callbackFlow {
+    val flow = callbackFlow<ApolloResponse<D>> {
       val newRequest = if (renewUuid) {
         request.newBuilder().requestUuid(uuid4()).build()
       } else {
@@ -125,32 +161,17 @@ class WebSocketNetworkTransport private constructor(
       renewUuid = true
 
       val operationListener = DefaultWebSocketOperationListener(newRequest, this)
-      val reg = lock.withLock {
-        if (currentSocket == null) {
-          currentSocket = SubscribableWebSocket(
-              webSocketEngine = webSocketEngine,
-              url = serverUrl(),
-              headers = headers,
-              idleTimeoutMillis = idleTimeoutMillis,
-              onConnected = ::onWebSocketConnected,
-              onDisconnected = ::onWebSocketDisconnected,
-              onDisposed = ::onWebSocketDisposed,
-              dispatcher = Dispatchers.Default,
-              wsProtocol = wsProtocolFactory.build(),
-              reopenWhen = reopenWhen,
-              pingIntervalMillis = pingIntervalMillis,
-              connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis,
-              attempt = attempt++
-          )
+
+      if (running.compareAndSet(expect = false, update = true)) {
+        scope.launch {
+          socketLoop()
         }
-        if (readyToConnect) {
-          currentSocket!!.connect()
-        }
-        currentSocket!!.startOperation(newRequest, operationListener)
       }
 
+      webSocketEvents.trySend(StartEvent(newRequest, operationListener))
+
       awaitClose {
-        reg.stop()
+        webSocketEvents.trySend(StopEvent(newRequest, operationListener))
       }
     }
 
@@ -167,7 +188,8 @@ class WebSocketNetworkTransport private constructor(
   }
 
   override fun dispose() {
-    currentSocket?.cancel()
+    closeConnection(DefaultApolloException("The network transport has been disposed"))
+    webSocketEvents.close()
   }
 
   /**
@@ -179,7 +201,7 @@ class WebSocketNetworkTransport private constructor(
    * propagated to all the [Flow] awaiting responses.
    */
   fun closeConnection(reason: Throwable) {
-    currentSocket?.closeConnection(reason)
+    webSocketEvents.trySend(CloseEvent(reason))
   }
 
 
@@ -357,7 +379,9 @@ private class DefaultWebSocketOperationListener<D : Operation.Data>(
       deferredJsonMerger.reset()
     }
 
-    producerScope.trySend(apolloResponse)
+    if (!deferredJsonMerger.isEmptyPayload) {
+      producerScope.trySend(apolloResponse)
+    }
   }
 
   override fun onError(throwable: Throwable) {
