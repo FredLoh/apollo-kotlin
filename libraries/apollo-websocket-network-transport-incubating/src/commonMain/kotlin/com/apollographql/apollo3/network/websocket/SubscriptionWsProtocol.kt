@@ -72,7 +72,7 @@ class SubscriptionWsProtocol(
           /**
            * "error" is followed by "complete" but we send the terminal [OperationErrorServerMessage] right away
            */
-          type == "error" -> OperationErrorServerMessage(id, map)
+          type == "error" -> OperationErrorServerMessage(id, map["payload"])
           else -> error("") // make the compiler happy
         }
       }

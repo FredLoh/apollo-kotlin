@@ -3,8 +3,10 @@ package com.apollographql.apollo3.network.websocket
 import com.apollographql.apollo3.api.ApolloRequest
 import com.apollographql.apollo3.api.Operation
 import com.apollographql.apollo3.api.http.HttpHeader
+import com.apollographql.apollo3.exception.ApolloNetworkException
 import com.apollographql.apollo3.exception.ApolloWebSocketClosedException
 import com.apollographql.apollo3.exception.DefaultApolloException
+import com.apollographql.apollo3.exception.SubscriptionOperationException
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CoroutineDispatcher
@@ -33,7 +35,6 @@ internal class SubscribableWebSocket(
     private val pingIntervalMillis: Long,
     private val connectionAcknowledgeTimeoutMillis: Long,
 ) : WebSocketListener {
-  private var throwable: Throwable? = null
 
   // webSocket is thread safe, no need to lock
   private var webSocket: WebSocket = webSocketEngine.newWebSocket(url, headers, this@SubscribableWebSocket)
@@ -43,9 +44,11 @@ internal class SubscribableWebSocket(
   private val lock = reentrantLock()
   private var timeoutJob: Job? = null
   private var state: State = State.Initial
+  private var throwable: Throwable? = null
   private var activeListeners = mutableMapOf<String, ActiveOperationListener>()
   private var idleJob: Job? = null
   private var pingJob: Job? = null
+  private var pending = mutableListOf<ApolloRequest<*>>()
   // end of locked fields
 
   init {
@@ -108,9 +111,10 @@ internal class SubscribableWebSocket(
       ConnectionAckServerMessage -> {
         timeoutJob?.cancel()
         timeoutJob = null
-        onConnected()
+
         lock.withLock {
           state = State.Connected
+
           if (pingIntervalMillis > 0) {
             pingJob = scope.launch {
               while (true) {
@@ -119,11 +123,19 @@ internal class SubscribableWebSocket(
               }
             }
           }
+
+          scope.launch {
+            pending.forEach {
+              webSocket.send(wsProtocol.operationStart(it))
+            }
+          }
         }
+
+        onConnected()
       }
 
       is ConnectionErrorServerMessage -> {
-        disconnect(DefaultApolloException("Received connection_error"))
+        disconnect(ApolloNetworkException("Connection error"))
         webSocket.close(CLOSE_GOING_AWAY, "Connection Error")
       }
 
@@ -141,7 +153,7 @@ internal class SubscribableWebSocket(
       }
 
       is OperationErrorServerMessage -> {
-        listenerFor(message.id)?.onError(DefaultApolloException("Server send an error ${message.payload}"))
+        listenerFor(message.id)?.onError(SubscriptionOperationException("Server send an error", message.payload))
       }
 
       is ParseErrorServerMessage -> {
@@ -188,7 +200,7 @@ internal class SubscribableWebSocket(
   enum class AddResult {
     Added,
     AlreadyExists,
-    AlreadyClosed
+    AlreadyClosed,
   }
   fun <D : Operation.Data> startOperation(request: ApolloRequest<D>, listener: WebSocketOperationListener) {
     val added = lock.withLock {
@@ -199,8 +211,13 @@ internal class SubscribableWebSocket(
         AddResult.AlreadyClosed
       } else if (activeListeners.containsKey(request.requestUuid.toString())){
         AddResult.AlreadyExists
+      } else if (state != State.Connected) {
+        activeListeners.put(request.requestUuid.toString(), ActiveOperationListener(listener, false))
+        pending.add(request)
+        AddResult.Added
       } else {
         activeListeners.put(request.requestUuid.toString(), ActiveOperationListener(listener, false))
+        scope.launch { webSocket.send(wsProtocol.operationStart(request)) }
         AddResult.Added
       }
     }
@@ -208,7 +225,7 @@ internal class SubscribableWebSocket(
     when (added) {
       AddResult.AlreadyClosed -> listener.onError(throwable!!)
       AddResult.AlreadyExists -> listener.onError(DefaultApolloException("There is already a subscription with that id"))
-      AddResult.Added -> scope.launch { webSocket.send(wsProtocol.operationStart(request)) }
+      AddResult.Added -> Unit
     }
   }
 

@@ -84,8 +84,10 @@ class WebSocketNetworkTransport private constructor(
     webSocketEvents.trySend(DisconnectEvent(throwable, listeners))
   }
 
-  private suspend fun newWebSocket(): SubscribableWebSocket {
-    return SubscribableWebSocket(
+  var attempt = 1L
+
+  private suspend fun CoroutineScope.socketLoop() {
+    val socket =  SubscribableWebSocket(
         webSocketEngine = webSocketEngine,
         url = serverUrl(),
         headers = headers,
@@ -97,12 +99,6 @@ class WebSocketNetworkTransport private constructor(
         pingIntervalMillis = pingIntervalMillis,
         connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis,
     )
-  }
-
-  var attempt = 1L
-
-  private suspend fun CoroutineScope.socketLoop() {
-    val socket: SubscribableWebSocket = newWebSocket()
 
     while (true) {
       when(val event = webSocketEvents.receive()) {
@@ -340,7 +336,7 @@ class WebSocketNetworkTransport private constructor(
         webSocketEngine = webSocketEngine ?: WebSocketEngine(),
         idleTimeoutMillis = idleTimeoutMillis ?: 60_000,
         reopenWhen = reopenWhen ?: { _, _ -> false },
-        wsProtocolFactory = wsProtocolFactory ?: GraphQLWsProtocol.Factory(),
+        wsProtocolFactory = wsProtocolFactory ?: SubscriptionWsProtocol.Factory(),
         pingIntervalMillis = pingIntervalMillis ?: -1L,
         connectionAcknowledgeTimeoutMillis = connectionAcknowledgeTimeoutMillis ?: 10_000L,
         enableReopen = enableReopen
