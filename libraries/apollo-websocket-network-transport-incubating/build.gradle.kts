@@ -39,7 +39,7 @@ kotlin {
          * there is not much we can do about it
          * See https://youtrack.jetbrains.com/issue/KT-47038
          */
-        compileOnly(libs.kotlin.node)
+        implementation(libs.kotlin.node)
       }
     }
   }
