@@ -10,7 +10,8 @@ apolloLibrary(
 
 dependencies {
   compileOnly(libs.gradle.api.min)
-  compileOnly(libs.kotlin.plugin.min)
+  compileOnly(libs.kotlin.plugin)
+  compileOnly(libs.kotlin.plugin.api)
   compileOnly(libs.android.plugin.min)
 
   api(project(":apollo-compiler"))
@@ -30,6 +31,11 @@ gradlePlugin {
       description = "Automatically generates typesafe java and kotlin models from your GraphQL files."
       implementationClass = "com.apollographql.apollo3.gradle.internal.ApolloPlugin"
       tags.set(listOf("graphql", "apollo", "plugin"))
+    }
+
+    create("checkInputCompilerPlugin") {
+      id = "com.apollographql.apollo3.checkinput"
+      implementationClass = "com.apollographql.apollo3.gradle.internal.CheckInputGradlePlugin"
     }
   }
 }

@@ -38,7 +38,6 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.TaskProvider
 import org.gradle.util.GradleVersion
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
-import org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget
 import java.io.File
 import java.util.concurrent.Callable
 import javax.inject.Inject
@@ -247,9 +246,10 @@ abstract class DefaultApolloExtension(
     }
   }
 
+  @Suppress("DEPRECATION")
   private fun checkForLegacyJsTarget() {
     val kotlin = project.extensions.findByName("kotlin") as? KotlinMultiplatformExtension
-    val hasLegacyJsTarget = kotlin?.targets?.any { target -> target is KotlinJsTarget && target.irTarget == null } == true
+    val hasLegacyJsTarget = kotlin?.targets?.any { target -> target is org.jetbrains.kotlin.gradle.targets.js.KotlinJsTarget /*&& target.irTarget == null */ } == true
     check(!hasLegacyJsTarget) {
       "Apollo: LEGACY js target is not supported by Apollo, please use IR."
     }
